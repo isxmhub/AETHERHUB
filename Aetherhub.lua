@@ -1,224 +1,266 @@
--- SERVICES
+--// AETHER HUB V5
+--// UI + ESP complet + Speed + Jump Boost avec slider + lignes bleues + pseudo
+
+-- Services
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- CONFIG
-local ESP_ENABLED = false
-local SPEED_ENABLED = false
-local SPEED_VALUE = 24 -- vitesse par défaut (16 = normal)
+-- States
+local ESPEnabled = false
+local SpeedEnabled = false
+local JumpEnabled = false
+local WalkSpeedValue = 16
+local JumpPowerValue = 50
 
--- =========================
--- UI
--- =========================
-local gui = Instance.new("ScreenGui")
-gui.Name = "AetherHub"
-gui.ResetOnSpawn = false
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- Store ESP objects
+local ESPObjects = {}
 
-local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(260, 220)
-main.Position = UDim2.fromScale(0.5, 0.5)
-main.AnchorPoint = Vector2.new(0.5, 0.5)
-main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-main.BorderSizePixel = 0
-main.Parent = gui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+-- GUI
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "AETHERHUB"
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
-title.BackgroundTransparency = 1
-title.Text = "AETHER HUB V1"
-title.TextColor3 = Color3.fromRGB(0, 170, 255)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 20
-title.Parent = main
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.fromOffset(470, 360)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 
--- ESP BUTTON
-local espBtn = Instance.new("TextButton")
-espBtn.Size = UDim2.fromOffset(200, 36)
-espBtn.Position = UDim2.fromOffset(30, 50)
-espBtn.Text = "ESP : OFF"
-espBtn.Font = Enum.Font.GothamBold
-espBtn.TextSize = 14
-espBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-espBtn.TextColor3 = Color3.new(1,1,1)
-espBtn.Parent = main
-Instance.new("UICorner", espBtn).CornerRadius = UDim.new(0, 8)
+-- Title bar
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,40)
+Title.Text = "AETHER HUB V5"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextColor3 = Color3.fromRGB(120,170,255)
+Title.BackgroundTransparency = 1
 
--- SPEED BUTTON
-local speedBtn = Instance.new("TextButton")
-speedBtn.Size = UDim2.fromOffset(200, 36)
-speedBtn.Position = UDim2.fromOffset(30, 95)
-speedBtn.Text = "SPEED : OFF"
-speedBtn.Font = Enum.Font.GothamBold
-speedBtn.TextSize = 14
-speedBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-speedBtn.TextColor3 = Color3.new(1,1,1)
-speedBtn.Parent = main
-Instance.new("UICorner", speedBtn).CornerRadius = UDim.new(0, 8)
+-- Tabs
+local Tabs = Instance.new("Frame", Main)
+Tabs.Position = UDim2.fromOffset(10,50)
+Tabs.Size = UDim2.fromOffset(140,290)
+Tabs.BackgroundTransparency = 1
 
--- SPEED INPUT
-local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.fromOffset(200, 32)
-speedBox.Position = UDim2.fromOffset(30, 140)
-speedBox.PlaceholderText = "Vitesse (ex: 24)"
-speedBox.Text = tostring(SPEED_VALUE)
-speedBox.Font = Enum.Font.Gotham
-speedBox.TextSize = 14
-speedBox.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-speedBox.TextColor3 = Color3.new(1,1,1)
-speedBox.ClearTextOnFocus = false
-speedBox.Parent = main
-Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 8)
+local Content = Instance.new("Frame", Main)
+Content.Position = UDim2.fromOffset(160,50)
+Content.Size = UDim2.fromOffset(300,290)
+Content.BackgroundTransparency = 1
 
--- =========================
--- DRAG MENU
--- =========================
-local dragging, dragStart, startPos = false
-
-main.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = main.Position
-	end
-end)
-
-main.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = false
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-	or input.UserInputType == Enum.UserInputType.Touch) then
-		local delta = input.Position - dragStart
-		main.Position = UDim2.new(
-			startPos.X.Scale, startPos.X.Offset + delta.X,
-			startPos.Y.Scale, startPos.Y.Offset + delta.Y
-		)
-	end
-end)
-
--- =========================
--- ESP FUNCTIONS
--- =========================
-local function addHighlight(player)
-	if player == LocalPlayer or not ESP_ENABLED then return end
-	if not player.Character or player.Character:FindFirstChild("PlayerHighlight") then return end
-
-	local h = Instance.new("Highlight")
-	h.Name = "PlayerHighlight"
-	h.Adornee = player.Character
-	h.FillColor = Color3.fromRGB(255, 0, 0)
-	h.OutlineColor = Color3.fromRGB(255, 255, 255)
-	h.FillTransparency = 0.5
-	h.Parent = player.Character
+local function createTabButton(text, y)
+	local b = Instance.new("TextButton", Tabs)
+	b.Size = UDim2.fromOffset(140,40)
+	b.Position = UDim2.fromOffset(0, y)
+	b.Text = text
+	b.Font = Enum.Font.Gotham
+	b.TextSize = 14
+	b.TextColor3 = Color3.new(1,1,1)
+	b.BackgroundColor3 = Color3.fromRGB(30,30,45)
+	Instance.new("UICorner", b)
+	return b
 end
 
-local function addLine(player)
-	if player == LocalPlayer or not ESP_ENABLED then return end
-	if not LocalPlayer.Character or not player.Character then return end
+local FeaturesTab = createTabButton("Features",0)
+local MovementTab = createTabButton("Movement",50)
+local AboutTab = createTabButton("About",100)
 
-	local hrp1 = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	local hrp2 = player.Character:FindFirstChild("HumanoidRootPart")
-	if not hrp1 or not hrp2 then return end
-
-	local att1 = hrp1:FindFirstChild("Aether_Att1") or Instance.new("Attachment", hrp1)
-	att1.Name = "Aether_Att1"
-	local att2 = hrp2:FindFirstChild("Aether_Att2") or Instance.new("Attachment", hrp2)
-	att2.Name = "Aether_Att2"
-
-	if hrp1:FindFirstChild("AetherLine_" .. player.Name) then return end
-
-	local beam = Instance.new("Beam")
-	beam.Name = "AetherLine_" .. player.Name
-	beam.Attachment0 = att1
-	beam.Attachment1 = att2
-	beam.Width0, beam.Width1 = 0.35, 0.35
-	beam.Color = ColorSequence.new(Color3.fromRGB(0, 120, 255))
-	beam.LightEmission = 1
-	beam.FaceCamera = true
-	beam.Parent = hrp1
+local Pages = {}
+local function createPage(name)
+	local f = Instance.new("Frame", Content)
+	f.Size = UDim2.fromScale(1,1)
+	f.Visible = false
+	f.BackgroundTransparency = 1
+	Pages[name] = f
+	return f
 end
 
-local function clearESP()
-	for _, p in pairs(Players:GetPlayers()) do
-		if p.Character then
-			local h = p.Character:FindFirstChild("PlayerHighlight")
-			if h then h:Destroy() end
+local FeaturesPage = createPage("Features")
+local MovementPage = createPage("Movement")
+local AboutPage = createPage("About")
+FeaturesPage.Visible = true
+
+local function switchPage(name)
+	for _,v in pairs(Pages) do v.Visible = false end
+	Pages[name].Visible = true
+end
+
+FeaturesTab.MouseButton1Click:Connect(function() switchPage("Features") end)
+MovementTab.MouseButton1Click:Connect(function() switchPage("Movement") end)
+AboutTab.MouseButton1Click:Connect(function() switchPage("About") end)
+
+-- Toggle helper
+local function createToggle(parent,text,y,callback)
+	local b = Instance.new("TextButton", parent)
+	b.Size = UDim2.fromOffset(250,40)
+	b.Position = UDim2.fromOffset(0,y)
+	b.Text = text.." : OFF"
+	b.Font = Enum.Font.Gotham
+	b.TextSize = 14
+	b.TextColor3 = Color3.new(1,1,1)
+	b.BackgroundColor3 = Color3.fromRGB(40,40,60)
+	Instance.new("UICorner", b)
+
+	local state = false
+	b.MouseButton1Click:Connect(function()
+		state = not state
+		b.Text = text.." : "..(state and "ON" or "OFF")
+		callback(state)
+	end)
+end
+
+-- ESP Toggle
+createToggle(FeaturesPage,"ESP",0,function(v)
+	ESPEnabled=v
+	if v then applyESP() else clearESP() end
+end)
+
+-- Movement Toggles
+createToggle(MovementPage,"Speed Boost",0,function(v) SpeedEnabled=v end)
+createToggle(MovementPage,"Jump Boost",70,function(v) JumpEnabled=v end)
+
+-- Slider helper
+local function createSlider(parent,posY,label,initial,callback)
+	local bg = Instance.new("Frame", parent)
+	bg.Position = UDim2.fromOffset(0,posY)
+	bg.Size = UDim2.fromOffset(250,10)
+	bg.BackgroundColor3 = Color3.fromRGB(60,60,80)
+	Instance.new("UICorner",bg)
+
+	local fill = Instance.new("Frame", bg)
+	fill.Size = UDim2.fromScale(initial,1)
+	fill.BackgroundColor3 = Color3.fromRGB(120,170,255)
+	Instance.new("UICorner",fill)
+
+	local dragging = false
+	local valueLabel = Instance.new("TextLabel", parent)
+	valueLabel.Size = UDim2.fromOffset(60,20)
+	valueLabel.Position = UDim2.fromOffset(260,posY-5)
+	valueLabel.TextColor3 = Color3.new(1,1,1)
+	valueLabel.BackgroundTransparency = 1
+	valueLabel.Font = Enum.Font.Gotham
+	valueLabel.TextSize = 14
+	valueLabel.Text = math.floor(initial*100)
+
+	bg.InputBegan:Connect(function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType==Enum.UserInputType.MouseMovement then
+			local pos = math.clamp((input.Position.X - bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
+			fill.Size = UDim2.fromScale(pos,1)
+			valueLabel.Text = math.floor(pos*100)
+			callback(pos)
 		end
+	end)
+	return {bg=bg,fill=fill,valueLabel=valueLabel}
+end
+
+-- Speed slider
+createSlider(MovementPage,40,"Speed",WalkSpeedValue/76,function(pos)
+	WalkSpeedValue=16 + pos*60
+end)
+
+-- Jump slider
+createSlider(MovementPage,140,"Jump",JumpPowerValue/100,function(pos)
+	JumpPowerValue=50 + pos*100
+end)
+
+-- About
+local AboutText = Instance.new("TextLabel", AboutPage)
+AboutText.Size = UDim2.fromScale(1,1)
+AboutText.Text = "AETHER HUB V5\nESP + Speed + Jump + Pseudo + Lignes\nUI Inspired by Nameless"
+AboutText.TextColor3 = Color3.new(1,1,1)
+AboutText.BackgroundTransparency = 1
+AboutText.Font = Enum.Font.Gotham
+AboutText.TextWrapped = true
+
+-- ESP functions
+function clearESP()
+	for player,obj in pairs(ESPObjects) do
+		if obj.Highlight then obj.Highlight:Destroy() end
+		if obj.Billboard then obj.Billboard:Destroy() end
+		if obj.Beam then obj.Beam:Destroy() end
+		if obj.Attachments then for _,a in pairs(obj.Attachments) do a:Destroy() end end
 	end
-	if LocalPlayer.Character then
-		for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-			if v:IsA("Beam") and v.Name:find("AetherLine_") then
-				v:Destroy()
+	ESPObjects = {}
+end
+
+function createESP(player)
+	if player==LocalPlayer then return end
+	local function apply(char)
+		if not ESPEnabled then return end
+
+		if not char:FindFirstChild("AetherESP") then
+			local h = Instance.new("Highlight", char)
+			h.Name="AetherESP"
+			h.FillColor=Color3.new(1,0,0)
+			h.OutlineColor=Color3.new(1,1,1)
+		end
+
+		if not char:FindFirstChild("AetherName") then
+			local bill = Instance.new("BillboardGui", char)
+			bill.Name="AetherName"
+			bill.Adornee = char:WaitForChild("Head")
+			bill.Size=UDim2.fromOffset(200,50)
+			bill.StudsOffset=Vector3.new(0,2.5,0)
+			bill.AlwaysOnTop=true
+			local txt = Instance.new("TextLabel", bill)
+			txt.Size=UDim2.fromScale(1,1)
+			txt.BackgroundTransparency=1
+			txt.Text=player.Name
+			txt.TextColor3=Color3.new(1,0,0)
+			txt.Font=Enum.Font.GothamBold
+			txt.TextSize=14
+		end
+
+		-- Ligne bleue
+		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+			local hrp1=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			local hrp2=char:FindFirstChild("HumanoidRootPart")
+			if hrp1 and hrp2 and not ESPObjects[player] then
+				local att1 = Instance.new("Attachment", hrp1)
+				att1.Name="Aether_Att1_"..player.Name
+				local att2 = Instance.new("Attachment", hrp2)
+				att2.Name="Aether_Att2_"..player.Name
+				local beam = Instance.new("Beam")
+				beam.Name="AetherLine_"..player.Name
+				beam.Attachment0=att1
+				beam.Attachment1=att2
+				beam.Width0,beam.Width1=0.4,0.4
+				beam.Color=ColorSequence.new(Color3.fromRGB(0,120,255))
+				beam.LightEmission=1
+				beam.FaceCamera=true
+				beam.Parent=hrp1
+				ESPObjects[player]={Highlight=char:FindFirstChild("AetherESP"),Billboard=char:FindFirstChild("AetherName"),Beam=beam,Attachments={att1,att2}}
 			end
 		end
 	end
+	if player.Character then apply(player.Character) end
+	player.CharacterAdded:Connect(apply)
 end
 
-local function applyESP()
-	for _, p in pairs(Players:GetPlayers()) do
-		addHighlight(p)
-		addLine(p)
-	end
+function applyESP()
+	for _,p in pairs(Players:GetPlayers()) do createESP(p) end
 end
 
--- =========================
--- SPEED FUNCTIONS
--- =========================
-local function applySpeed()
-	local char = LocalPlayer.Character
-	if not char then return end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if not hum then return end
-	hum.WalkSpeed = SPEED_ENABLED and SPEED_VALUE or 16
-end
+for _,p in pairs(Players:GetPlayers()) do createESP(p) end
+Players.PlayerAdded:Connect(createESP)
 
-speedBox.FocusLost:Connect(function()
-	local v = tonumber(speedBox.Text)
-	if v then
-		SPEED_VALUE = math.clamp(v, 16, 200)
-		if SPEED_ENABLED then applySpeed() end
+-- Speed & Jump apply
+RunService.RenderStepped:Connect(function()
+	local char=LocalPlayer.Character
+	if char then
+		local hum=char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			if SpeedEnabled then hum.WalkSpeed=WalkSpeedValue else hum.WalkSpeed=16 end
+			if JumpEnabled then hum.JumpPower=JumpPowerValue else hum.JumpPower=50 end
+		end
 	end
-end)
-
--- =========================
--- BUTTONS
--- =========================
-espBtn.MouseButton1Click:Connect(function()
-	ESP_ENABLED = not ESP_ENABLED
-	if ESP_ENABLED then
-		espBtn.Text = "ESP : ON"
-		espBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-		applyESP()
-	else
-		espBtn.Text = "ESP : OFF"
-		espBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-		clearESP()
-	end
-end)
-
-speedBtn.MouseButton1Click:Connect(function()
-	SPEED_ENABLED = not SPEED_ENABLED
-	if SPEED_ENABLED then
-		speedBtn.Text = "SPEED : ON"
-		speedBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 120)
-	else
-		speedBtn.Text = "SPEED : OFF"
-		speedBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-	end
-	applySpeed()
-end)
-
--- Respawn support
-LocalPlayer.CharacterAdded:Connect(function()
-	task.wait(0.5)
-	applySpeed()
-	if ESP_ENABLED then applyESP() end
 end)
