@@ -1,10 +1,12 @@
---// AETHER HUB V5
---// UI + ESP complet + Speed + Jump Boost avec slider + lignes bleues + pseudo
+--// AETHER HUB V7 PRO
+--// UI stylée, hover anim, dégradés, ESP + pseudo + lignes + Speed & Jump Boost
+--// Hub toujours visible, sans flou
 
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 -- States
@@ -21,46 +23,57 @@ local ESPObjects = {}
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "AETHERHUB"
 
+-- Main frame
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.fromOffset(470, 360)
-Main.Position = UDim2.fromScale(0.5, 0.5)
-Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+Main.Size = UDim2.fromOffset(500,400)
+Main.Position = UDim2.fromScale(0.5,0.5)
+Main.AnchorPoint = Vector2.new(0.5,0.5)
+Main.BackgroundColor3 = Color3.fromRGB(25,25,40)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,15)
 
--- Title bar
+-- Title
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1,0,0,40)
-Title.Text = "AETHER HUB V5"
+Title.Text = "AETHER HUB V7 PRO"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextColor3 = Color3.fromRGB(120,170,255)
+Title.TextSize = 20
+Title.TextColor3 = Color3.fromRGB(120,220,255)
 Title.BackgroundTransparency = 1
 
--- Tabs
+-- Tabs frame
 local Tabs = Instance.new("Frame", Main)
 Tabs.Position = UDim2.fromOffset(10,50)
-Tabs.Size = UDim2.fromOffset(140,290)
+Tabs.Size = UDim2.fromOffset(150,340)
 Tabs.BackgroundTransparency = 1
 
 local Content = Instance.new("Frame", Main)
-Content.Position = UDim2.fromOffset(160,50)
-Content.Size = UDim2.fromOffset(300,290)
+Content.Position = UDim2.fromOffset(170,50)
+Content.Size = UDim2.fromOffset(320,340)
 Content.BackgroundTransparency = 1
 
-local function createTabButton(text, y)
+-- Tab buttons creator
+local function createTabButton(text,y)
 	local b = Instance.new("TextButton", Tabs)
-	b.Size = UDim2.fromOffset(140,40)
-	b.Position = UDim2.fromOffset(0, y)
+	b.Size = UDim2.fromOffset(150,40)
+	b.Position = UDim2.fromOffset(0,y)
 	b.Text = text
 	b.Font = Enum.Font.Gotham
 	b.TextSize = 14
 	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = Color3.fromRGB(30,30,45)
-	Instance.new("UICorner", b)
+	b.BackgroundColor3 = Color3.fromRGB(50,50,70)
+	local uc = Instance.new("UICorner",b)
+	uc.CornerRadius = UDim.new(0,8)
+
+	-- Hover animation
+	b.MouseEnter:Connect(function()
+		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(80,80,120)}):Play()
+	end)
+	b.MouseLeave:Connect(function()
+		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(50,50,70)}):Play()
+	end)
 	return b
 end
 
@@ -68,12 +81,13 @@ local FeaturesTab = createTabButton("Features",0)
 local MovementTab = createTabButton("Movement",50)
 local AboutTab = createTabButton("About",100)
 
+-- Pages
 local Pages = {}
 local function createPage(name)
 	local f = Instance.new("Frame", Content)
 	f.Size = UDim2.fromScale(1,1)
-	f.Visible = false
 	f.BackgroundTransparency = 1
+	f.Visible = false
 	Pages[name] = f
 	return f
 end
@@ -92,58 +106,55 @@ FeaturesTab.MouseButton1Click:Connect(function() switchPage("Features") end)
 MovementTab.MouseButton1Click:Connect(function() switchPage("Movement") end)
 AboutTab.MouseButton1Click:Connect(function() switchPage("About") end)
 
--- Toggle helper
+-- Toggle button helper
 local function createToggle(parent,text,y,callback)
-	local b = Instance.new("TextButton", parent)
-	b.Size = UDim2.fromOffset(250,40)
+	local b = Instance.new("TextButton",parent)
+	b.Size = UDim2.fromOffset(240,40)
 	b.Position = UDim2.fromOffset(0,y)
 	b.Text = text.." : OFF"
 	b.Font = Enum.Font.Gotham
 	b.TextSize = 14
 	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = Color3.fromRGB(40,40,60)
-	Instance.new("UICorner", b)
+	b.BackgroundColor3 = Color3.fromRGB(40,40,70)
+	Instance.new("UICorner",b)
+	local state=false
 
-	local state = false
+	-- Hover animation
+	b.MouseEnter:Connect(function()
+		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(70,70,100)}):Play()
+	end)
+	b.MouseLeave:Connect(function()
+		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(40,40,70)}):Play()
+	end)
+
 	b.MouseButton1Click:Connect(function()
-		state = not state
+		state=not state
 		b.Text = text.." : "..(state and "ON" or "OFF")
 		callback(state)
 	end)
 end
 
--- ESP Toggle
-createToggle(FeaturesPage,"ESP",0,function(v)
-	ESPEnabled=v
-	if v then applyESP() else clearESP() end
-end)
-
--- Movement Toggles
-createToggle(MovementPage,"Speed Boost",0,function(v) SpeedEnabled=v end)
-createToggle(MovementPage,"Jump Boost",70,function(v) JumpEnabled=v end)
-
 -- Slider helper
 local function createSlider(parent,posY,label,initial,callback)
 	local bg = Instance.new("Frame", parent)
 	bg.Position = UDim2.fromOffset(0,posY)
-	bg.Size = UDim2.fromOffset(250,10)
-	bg.BackgroundColor3 = Color3.fromRGB(60,60,80)
+	bg.Size = UDim2.fromOffset(240,10)
+	bg.BackgroundColor3 = Color3.fromRGB(70,70,100)
 	Instance.new("UICorner",bg)
-
-	local fill = Instance.new("Frame", bg)
-	fill.Size = UDim2.fromScale(initial,1)
-	fill.BackgroundColor3 = Color3.fromRGB(120,170,255)
+	local fill = Instance.new("Frame",bg)
+	fill.Size=UDim2.fromScale(initial,1)
+	fill.BackgroundColor3=Color3.fromRGB(120,220,255)
 	Instance.new("UICorner",fill)
 
-	local dragging = false
-	local valueLabel = Instance.new("TextLabel", parent)
-	valueLabel.Size = UDim2.fromOffset(60,20)
-	valueLabel.Position = UDim2.fromOffset(260,posY-5)
-	valueLabel.TextColor3 = Color3.new(1,1,1)
-	valueLabel.BackgroundTransparency = 1
-	valueLabel.Font = Enum.Font.Gotham
-	valueLabel.TextSize = 14
-	valueLabel.Text = math.floor(initial*100)
+	local dragging=false
+	local valueLabel = Instance.new("TextLabel",parent)
+	valueLabel.Size=UDim2.fromOffset(50,20)
+	valueLabel.Position=UDim2.fromOffset(245,posY-5)
+	valueLabel.TextColor3=Color3.new(1,1,1)
+	valueLabel.BackgroundTransparency=1
+	valueLabel.Font=Enum.Font.Gotham
+	valueLabel.TextSize=14
+	valueLabel.Text=math.floor(initial*100)
 
 	bg.InputBegan:Connect(function(input)
 		if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true end
@@ -153,33 +164,43 @@ local function createSlider(parent,posY,label,initial,callback)
 	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType==Enum.UserInputType.MouseMovement then
-			local pos = math.clamp((input.Position.X - bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
-			fill.Size = UDim2.fromScale(pos,1)
-			valueLabel.Text = math.floor(pos*100)
+			local pos = math.clamp((input.Position.X-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
+			fill.Size=UDim2.fromScale(pos,1)
+			valueLabel.Text=math.floor(pos*100)
 			callback(pos)
 		end
 	end)
 	return {bg=bg,fill=fill,valueLabel=valueLabel}
 end
 
+-- Features toggles
+createToggle(FeaturesPage,"ESP",0,function(v)
+	ESPEnabled=v
+	if v then applyESP() else clearESP() end
+end)
+
+-- Movement toggles
+createToggle(MovementPage,"Speed Boost",0,function(v) SpeedEnabled=v end)
+createToggle(MovementPage,"Jump Boost",60,function(v) JumpEnabled=v end)
+
 -- Speed slider
 createSlider(MovementPage,40,"Speed",WalkSpeedValue/76,function(pos)
-	WalkSpeedValue=16 + pos*60
+	WalkSpeedValue=16+pos*60
 end)
 
 -- Jump slider
 createSlider(MovementPage,140,"Jump",JumpPowerValue/100,function(pos)
-	JumpPowerValue=50 + pos*100
+	JumpPowerValue=50+pos*100
 end)
 
 -- About
-local AboutText = Instance.new("TextLabel", AboutPage)
-AboutText.Size = UDim2.fromScale(1,1)
-AboutText.Text = "AETHER HUB V5\nESP + Speed + Jump + Pseudo + Lignes\nUI Inspired by Nameless"
-AboutText.TextColor3 = Color3.new(1,1,1)
-AboutText.BackgroundTransparency = 1
-AboutText.Font = Enum.Font.Gotham
-AboutText.TextWrapped = true
+local AboutText = Instance.new("TextLabel",AboutPage)
+AboutText.Size=UDim2.fromScale(1,1)
+AboutText.Text = "AETHER HUB V7 PRO\nESP + Speed + Jump + Pseudo + Lignes\nUI stylée et animée\nRejoins mon Discord : https://discord.gg/aSM5RqqgZg"
+AboutText.TextColor3=Color3.new(1,1,1)
+AboutText.BackgroundTransparency=1
+AboutText.Font=Enum.Font.Gotham
+AboutText.TextWrapped=true
 
 -- ESP functions
 function clearESP()
@@ -189,29 +210,27 @@ function clearESP()
 		if obj.Beam then obj.Beam:Destroy() end
 		if obj.Attachments then for _,a in pairs(obj.Attachments) do a:Destroy() end end
 	end
-	ESPObjects = {}
+	ESPObjects={}
 end
 
 function createESP(player)
 	if player==LocalPlayer then return end
 	local function apply(char)
 		if not ESPEnabled then return end
-
 		if not char:FindFirstChild("AetherESP") then
-			local h = Instance.new("Highlight", char)
+			local h = Instance.new("Highlight",char)
 			h.Name="AetherESP"
 			h.FillColor=Color3.new(1,0,0)
 			h.OutlineColor=Color3.new(1,1,1)
 		end
-
 		if not char:FindFirstChild("AetherName") then
-			local bill = Instance.new("BillboardGui", char)
+			local bill = Instance.new("BillboardGui",char)
 			bill.Name="AetherName"
-			bill.Adornee = char:WaitForChild("Head")
+			bill.Adornee=char:WaitForChild("Head")
 			bill.Size=UDim2.fromOffset(200,50)
 			bill.StudsOffset=Vector3.new(0,2.5,0)
 			bill.AlwaysOnTop=true
-			local txt = Instance.new("TextLabel", bill)
+			local txt = Instance.new("TextLabel",bill)
 			txt.Size=UDim2.fromScale(1,1)
 			txt.BackgroundTransparency=1
 			txt.Text=player.Name
@@ -219,17 +238,15 @@ function createESP(player)
 			txt.Font=Enum.Font.GothamBold
 			txt.TextSize=14
 		end
-
-		-- Ligne bleue
 		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
 			local hrp1=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 			local hrp2=char:FindFirstChild("HumanoidRootPart")
 			if hrp1 and hrp2 and not ESPObjects[player] then
-				local att1 = Instance.new("Attachment", hrp1)
+				local att1=Instance.new("Attachment",hrp1)
 				att1.Name="Aether_Att1_"..player.Name
-				local att2 = Instance.new("Attachment", hrp2)
+				local att2=Instance.new("Attachment",hrp2)
 				att2.Name="Aether_Att2_"..player.Name
-				local beam = Instance.new("Beam")
+				local beam=Instance.new("Beam")
 				beam.Name="AetherLine_"..player.Name
 				beam.Attachment0=att1
 				beam.Attachment1=att2
@@ -259,8 +276,8 @@ RunService.RenderStepped:Connect(function()
 	if char then
 		local hum=char:FindFirstChildOfClass("Humanoid")
 		if hum then
-			if SpeedEnabled then hum.WalkSpeed=WalkSpeedValue else hum.WalkSpeed=16 end
-			if JumpEnabled then hum.JumpPower=JumpPowerValue else hum.JumpPower=50 end
+			hum.WalkSpeed = SpeedEnabled and WalkSpeedValue or 16
+			hum.JumpPower = JumpEnabled and JumpPowerValue or 50
 		end
 	end
 end)
