@@ -22,22 +22,24 @@ local StealBoostEnabled = false
 local GrabAssistEnabled = false
 local AntiKBEnabled = false
 local AntiRagdollEnabled = false
+local AutoGrabEnabled = false  
 local WalkSpeedValue = 24
 local StealSpeedValue = 27
 local JumpPowerValue = 50
+local AutoGrabRange = 20  -- Distance réduite pour pas lag
 local ESPObjects = {}
 local WallhackObjects = {}
 
 -- Configurations Wallhack Optimisé
-local WallhackMode = "Smart" -- "Smart", "WallsOnly", "Full"
-local WallhackTransparency = 0.85 -- Plus élevé = plus transparent (0.85 recommandé)
-local MinPartSize = 5 -- Ignore les parts plus petites que ça (réduit le lag)
-local WallhackUpdateRate = 2 -- Secondes entre chaque update (2 = moins de lag)
+local WallhackMode = "Smart"
+local WallhackTransparency = 0.85
+local MinPartSize = 5
+local WallhackUpdateRate = 2
 
 -- Cache pour éviter de re-scanner constamment
 local CachedParts = {}
 local LastScan = 0
-local SCAN_INTERVAL = 10 -- Re-scan complet toutes les 10 secondes
+local SCAN_INTERVAL = 10
 
 -- UI Colors
 local MainColor = Color3.fromRGB(120,0,180)
@@ -69,6 +71,51 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 20
 Title.TextColor3 = TextColor
 Title.BackgroundTransparency = 1
+
+----------------------------------------------------------------
+-- BARRE DE PROGRESSION AUTO GRAB 🧲
+----------------------------------------------------------------
+local GrabIndicator = Instance.new("Frame", ScreenGui)
+GrabIndicator.Size = UDim2.fromOffset(300, 8)
+GrabIndicator.Position = UDim2.new(0.5, -150, 0.85, 0)
+GrabIndicator.BackgroundColor3 = Color3.fromRGB(40, 0, 60)
+GrabIndicator.BorderSizePixel = 0
+GrabIndicator.Visible = false
+GrabIndicator.ZIndex = 10
+Instance.new("UICorner", GrabIndicator).CornerRadius = UDim.new(0, 4)
+
+local GrabFill = Instance.new("Frame", GrabIndicator)
+GrabFill.Size = UDim2.fromScale(0, 1)
+GrabFill.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
+GrabFill.BorderSizePixel = 0
+GrabFill.ZIndex = 11
+Instance.new("UICorner", GrabFill).CornerRadius = UDim.new(0, 4)
+
+local GrabText = Instance.new("TextLabel", GrabIndicator)
+GrabText.Size = UDim2.fromScale(1, 1)
+GrabText.BackgroundTransparency = 1
+GrabText.Text = "🧲 Grabbing..."
+GrabText.Font = Enum.Font.GothamBold
+GrabText.TextSize = 12
+GrabText.TextColor3 = Color3.new(1, 1, 1)
+GrabText.ZIndex = 12
+
+-- Fonction pour afficher la barre de progression
+local function showGrabProgress()
+	GrabIndicator.Visible = true
+	GrabFill.Size = UDim2.fromScale(0, 1)
+	
+	-- Animation de remplissage
+	TweenService:Create(GrabFill, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {
+		Size = UDim2.fromScale(1, 1)
+	}):Play()
+	
+	-- Cache après 1 seconde
+	task.delay(1, function()
+		GrabIndicator.Visible = false
+	end)
+end
+----------------------------------------------------------------
 
 -- Tabs
 local Tabs = Instance.new("Frame", Main)
@@ -150,9 +197,10 @@ local function createToggle(parent,text,y,callback)
 end
 
 -- Features
-createToggle(FeaturesPage,"Grab Assist",0,function(v) GrabAssistEnabled=v end)
-createToggle(FeaturesPage,"Anti-Knockback",50,function(v) AntiKBEnabled=v end)
-createToggle(FeaturesPage,"Anti-Ragdoll",100,function(v) AntiRagdollEnabled=v end)
+createToggle(FeaturesPage,"Auto Grab 🧲",0,function(v) AutoGrabEnabled=v end)
+createToggle(FeaturesPage,"Grab Assist",50,function(v) GrabAssistEnabled=v end)
+createToggle(FeaturesPage,"Anti-Knockback",100,function(v) AntiKBEnabled=v end)
+createToggle(FeaturesPage,"Anti-Ragdoll",150,function(v) AntiRagdollEnabled=v end)
 
 -- Visual
 createToggle(VisualPage,"ESP",0,function(v) ESPEnabled=v end)
@@ -382,7 +430,7 @@ CloseBooster.MouseButton1Click:Connect(function()
 	AetherBooster.Visible = false
 end)
 
-createToggle(FeaturesPage,"Aether Booster",200,function(v)
+createToggle(FeaturesPage,"Aether Booster",250,function(v)
 	AetherBooster.Visible = v
 end)
 
@@ -391,7 +439,7 @@ end)
 ----------------------------------------------------------------
 local FakeBypassBtn = Instance.new("TextButton", FeaturesPage)
 FakeBypassBtn.Size = UDim2.fromOffset(240,40)
-FakeBypassBtn.Position = UDim2.fromOffset(0,250)
+FakeBypassBtn.Position = UDim2.fromOffset(0,300)
 FakeBypassBtn.Text = "Bypass Anti-Cheat 😈"
 FakeBypassBtn.Font = Enum.Font.GothamBold
 FakeBypassBtn.TextSize = 14
@@ -413,7 +461,7 @@ OverlayText.TextWrapped = true
 OverlayText.TextYAlignment = Enum.TextYAlignment.Center
 OverlayText.TextXAlignment = Enum.TextXAlignment.Center
 OverlayText.Font = Enum.Font.GothamBold
-OverlayText.TextSize = 36  -- AUGMENTÉ DE 26 À 36
+OverlayText.TextSize = 36
 OverlayText.TextColor3 = Color3.new(1,1,1)
 OverlayText.ZIndex = 101
 OverlayText.Text =
@@ -453,13 +501,98 @@ FakeBypassBtn.MouseButton1Click:Connect(function()
 	task.wait(0.6)
 	Overlay.Visible = false
 end)
+
 ----------------------------------------------------------------
--- END FAKE BYPASS
+-- AUTO GRAB SYSTEM OPTIMISÉ 🧲 (SANS TÉLÉPORTATION)
+----------------------------------------------------------------
+local lastGrabTime = 0
+local grabCooldown = 1  -- Cooldown de 1 seconde entre chaque grab
+
+task.spawn(function()
+	while task.wait(0.5) do  -- Check toutes les 0.5 secondes (réduit le lag)
+		pcall(function()
+			if AutoGrabEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				local hrp = LocalPlayer.Character.HumanoidRootPart
+				local char = LocalPlayer.Character
+				local currentTime = tick()
+				
+				-- Vérifie le cooldown
+				if currentTime - lastGrabTime < grabCooldown then
+					return
+				end
+				
+				-- Vérifie qu'on n'a pas déjà un brainrot
+				local hasBrainrot = false
+				local equippedTool = char:FindFirstChildOfClass("Tool")
+				if equippedTool then
+					local toolName = equippedTool.Name:lower()
+					if toolName:find("brain") then
+						hasBrainrot = true
+					end
+				end
+				
+				if hasBrainrot then
+					return  -- On a déjà un brainrot, on skip
+				end
+				
+				-- Cherche le brainrot le plus proche
+				local closestBrainrot = nil
+				local closestDistance = AutoGrabRange
+				
+				for _, obj in pairs(workspace:GetChildren()) do
+					if obj:IsA("Tool") or (obj:IsA("Model") and obj:FindFirstChildOfClass("Tool")) then
+						local tool = obj:IsA("Tool") and obj or obj:FindFirstChildOfClass("Tool")
+						
+						if tool then
+							local toolName = tool.Name:lower()
+							if toolName:find("brain") then
+								local handle = tool:FindFirstChild("Handle")
+								if handle then
+									local distance = (hrp.Position - handle.Position).Magnitude
+									if distance < closestDistance then
+										closestDistance = distance
+										closestBrainrot = tool
+									end
+								end
+							end
+						end
+					end
+				end
+				
+				-- Si on a trouvé un brainrot proche, on le prend
+				if closestBrainrot then
+					-- Méthode 1: Essayer de déclencher ProximityPrompt
+					local prompt = closestBrainrot:FindFirstChildOfClass("ProximityPrompt", true)
+					if prompt then
+						fireproximityprompt(prompt)
+						showGrabProgress()
+						lastGrabTime = currentTime
+						return
+					end
+					
+					-- Méthode 2: Changer le parent directement
+					if closestBrainrot.Parent == workspace or closestBrainrot.Parent:IsA("Model") then
+						closestBrainrot.Parent = char
+						task.wait(0.1)
+						
+						-- Essaie de l'équiper
+						if char.Humanoid then
+							char.Humanoid:EquipTool(closestBrainrot)
+						end
+						
+						showGrabProgress()
+						lastGrabTime = currentTime
+					end
+				end
+			end
+		end)
+	end
+end)
+----------------------------------------------------------------
+-- END AUTO GRAB
 ----------------------------------------------------------------
 
 -- MOVEMENT SYSTEM - DÉSACTIVÉ (cause respawn sur ce jeu)
--- L'anti-cheat du jeu détecte toute modification de WalkSpeed
--- Si vous voulez l'activer à vos risques, décommentez le code ci-dessous
 --[[
 task.spawn(function()
 	while task.wait() do
@@ -501,7 +634,7 @@ task.spawn(function()
 end)
 --]]
 
--- ANTI-RAGDOLL - Activé manuellement uniquement
+-- ANTI-RAGDOLL
 task.spawn(function()
 	while task.wait() do
 		pcall(function()
@@ -519,7 +652,7 @@ task.spawn(function()
 	end
 end)
 
--- ANTI-KB - Activé manuellement uniquement
+-- ANTI-KB
 task.spawn(function()
 	while task.wait(0.1) do
 		pcall(function()
@@ -544,7 +677,7 @@ task.spawn(function()
 	end
 end)
 
--- GRAB ASSIST (E key)
+-- GRAB ASSIST
 task.spawn(function()
 	while task.wait(0.5) do
 		pcall(function()
@@ -562,7 +695,7 @@ task.spawn(function()
 	end
 end)
 
--- ESP AMÉLIORÉ
+-- ESP
 task.spawn(function()
 	while task.wait() do
 		pcall(function()
@@ -605,17 +738,14 @@ task.spawn(function()
 						local distText = ESPObjects[player].distText
 
 						if onScreen then
-							-- Box
 							box.Position = Vector2.new(screenPos.X-20,screenPos.Y-40)
 							box.Size = Vector2.new(40,60)
 							box.Visible = true
 
-							-- Line
 							line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
 							line.To = Vector2.new(screenPos.X, screenPos.Y)
 							line.Visible = true
 
-							-- Name
 							if ESPShowNames then
 								nameText.Text = player.Name
 								nameText.Position = Vector2.new(screenPos.X, screenPos.Y - 50)
@@ -624,7 +754,6 @@ task.spawn(function()
 								nameText.Visible = false
 							end
 
-							-- Distance
 							if ESPShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
 								local distance = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
 								distText.Text = math.floor(distance).."m"
@@ -650,7 +779,6 @@ task.spawn(function()
 					end
 				end
 			else
-				-- Nettoyer tous les ESP quand désactivé
 				for player, objects in pairs(ESPObjects) do
 					if objects.box then objects.box:Remove() end
 					if objects.line then objects.line:Remove() end
@@ -664,36 +792,29 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- WALLHACK OPTIMISÉ - ANTI-LAG VERSION 🎯
+-- WALLHACK OPTIMISÉ
 ----------------------------------------------------------------
 
--- Fonction pour vérifier si c'est un mur/obstacle important
 local function isWallOrObstacle(part)
 	local size = part.Size
-	-- Doit être assez grand pour bloquer la vue
 	if size.Magnitude < MinPartSize then
 		return false
 	end
-	
-	-- Ignore les parts trop petites ou en forme de bâton
 	if size.X < 1 and size.Z < 1 then
 		return false
 	end
-	
 	return true
 end
 
--- Fonction pour vérifier si c'est une part de joueur
 local function isPlayerPart(obj)
 	local parent = obj.Parent
 	local depth = 0
 	
-	while parent and depth < 5 do -- Limite la profondeur pour éviter les lags
+	while parent and depth < 5 do
 		if parent:IsA("Model") then
 			if Players:GetPlayerFromCharacter(parent) then
 				return true
 			end
-			-- Vérifie aussi les noms communs de personnages
 			if parent.Name == "Character" or parent:FindFirstChild("Humanoid") then
 				return true
 			end
@@ -705,18 +826,15 @@ local function isPlayerPart(obj)
 	return false
 end
 
--- WALLHACK OPTIMISÉ
 task.spawn(function()
 	while task.wait(WallhackUpdateRate) do
 		pcall(function()
 			if WallhackEnabled then
 				local currentTime = tick()
 				
-				-- Re-scan complet uniquement si nécessaire
 				if currentTime - LastScan > SCAN_INTERVAL or next(CachedParts) == nil then
 					LastScan = currentTime
 					
-					-- Reset le cache
 					for obj, data in pairs(CachedParts) do
 						if obj and obj.Parent then
 							obj.Transparency = data.OriginalTransparency
@@ -724,12 +842,9 @@ task.spawn(function()
 					end
 					CachedParts = {}
 					
-					-- Nouveau scan optimisé
 					local partsToProcess = {}
 					
-					-- Collecte intelligente selon le mode
 					if WallhackMode == "WallsOnly" then
-						-- Uniquement les dossiers susceptibles de contenir des murs
 						local folders = {"Map", "Walls", "Buildings", "Structure", "World"}
 						for _, folderName in pairs(folders) do
 							local folder = workspace:FindFirstChild(folderName)
@@ -742,14 +857,12 @@ task.spawn(function()
 							end
 						end
 					elseif WallhackMode == "Smart" then
-						-- Filtre intelligent : grands objets seulement
 						for _, obj in pairs(workspace:GetDescendants()) do
 							if obj:IsA("BasePart") and obj.Size.Magnitude >= MinPartSize then
 								table.insert(partsToProcess, obj)
 							end
 						end
-					else -- "Full"
-						-- Mode complet (peut lag sur grosses maps)
+					else
 						for _, obj in pairs(workspace:GetDescendants()) do
 							if obj:IsA("BasePart") then
 								table.insert(partsToProcess, obj)
@@ -757,31 +870,24 @@ task.spawn(function()
 						end
 					end
 					
-					-- Traite les parts collectées
 					for _, obj in pairs(partsToProcess) do
 						if obj.Name ~= "HumanoidRootPart" and obj.Name ~= "Head" and obj.Name ~= "Baseplate" then
 							if not isPlayerPart(obj) then
-								-- Vérifie si c'est pertinent
 								if WallhackMode == "WallsOnly" or isWallOrObstacle(obj) or WallhackMode == "Full" then
-									-- Cache les données originales
 									CachedParts[obj] = {
 										OriginalTransparency = obj.Transparency,
 										OriginalCanCollide = obj.CanCollide
 									}
-									
-									-- Applique la transparence
 									obj.Transparency = math.max(obj.Transparency, WallhackTransparency)
 								end
 							end
 						end
 					end
 				else
-					-- Mise à jour légère : vérifie juste que les objets cachés existent toujours
 					for obj, data in pairs(CachedParts) do
 						if not obj or not obj.Parent then
 							CachedParts[obj] = nil
 						else
-							-- Maintient la transparence
 							if obj.Transparency < WallhackTransparency then
 								obj.Transparency = WallhackTransparency
 							end
@@ -789,7 +895,6 @@ task.spawn(function()
 					end
 				end
 			else
-				-- Restaure TOUT quand désactivé
 				for obj, data in pairs(CachedParts) do
 					if obj and obj.Parent then
 						obj.Transparency = data.OriginalTransparency
@@ -802,9 +907,7 @@ task.spawn(function()
 	end
 end)
 
--- CONTRÔLES WALLHACK DANS L'UI
-
--- Toggle mode Wallhack
+-- UI WALLHACK
 local WallhackModeBtn = Instance.new("TextButton", VisualPage)
 WallhackModeBtn.Size = UDim2.fromOffset(240,40)
 WallhackModeBtn.Position = UDim2.fromOffset(0,200)
@@ -824,10 +927,9 @@ WallhackModeBtn.MouseButton1Click:Connect(function()
 		WallhackMode = "Smart"
 	end
 	WallhackModeBtn.Text = "Mode: "..WallhackMode
-	LastScan = 0 -- Force un nouveau scan
+	LastScan = 0
 end)
 
--- Contrôles transparence
 local TranspLabel = Instance.new("TextLabel", VisualPage)
 TranspLabel.Size = UDim2.fromOffset(240,25)
 TranspLabel.Position = UDim2.fromOffset(0,250)
@@ -869,6 +971,7 @@ TranspPlus.MouseButton1Click:Connect(function()
 	LastScan = 0
 end)
 
-print("✅ AETHER HUB V11 SAFE - Loaded successfully!")
-print("🎯 Wallhack optimisé activé - Smart mode")
+print("✅ AETHER HUB V11 SAFE - Loaded!")
+print("🎯 Wallhack optimisé - Smart mode")
+print("🧲 Auto Grab - Sans téléportation + Barre violette")
 print("💜 By isxm and izxmi")
