@@ -1,5 +1,5 @@
---// AETHER HUB V9 PRO
---// UI violet, ESP + Wallhack séparé + pseudo + lignes + speed/jump boost + sliders transparence
+-- AETHER HUB V11 - SAFE VERSION (NO AUTO RESPAWN)
+-- Client-side safe
 
 -- Services
 local Players = game:GetService("Players")
@@ -7,29 +7,55 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
--- States
+-- Wait for character to load
+repeat task.wait() until LocalPlayer.Character
+
+-- Configurations
 local ESPEnabled = false
+local ESPShowDistance = false
+local ESPShowNames = false
 local WallhackEnabled = false
 local SpeedEnabled = false
-local JumpEnabled = false
-local WalkSpeedValue = 16
+local StealBoostEnabled = false
+local GrabAssistEnabled = false
+local AntiKBEnabled = false
+local AntiRagdollEnabled = false
+local WalkSpeedValue = 24
+local StealSpeedValue = 27
 local JumpPowerValue = 50
-local WallhackTransparency = 0.5
-
--- Store ESP objects
 local ESPObjects = {}
+local WallhackObjects = {}
+
+-- Configurations Wallhack Optimisé
+local WallhackMode = "Smart" -- "Smart", "WallsOnly", "Full"
+local WallhackTransparency = 0.85 -- Plus élevé = plus transparent (0.85 recommandé)
+local MinPartSize = 5 -- Ignore les parts plus petites que ça (réduit le lag)
+local WallhackUpdateRate = 2 -- Secondes entre chaque update (2 = moins de lag)
+
+-- Cache pour éviter de re-scanner constamment
+local CachedParts = {}
+local LastScan = 0
+local SCAN_INTERVAL = 10 -- Re-scan complet toutes les 10 secondes
+
+-- UI Colors
+local MainColor = Color3.fromRGB(120,0,180)
+local TabColor = Color3.fromRGB(90,0,130)
+local TabHover = Color3.fromRGB(130,0,180)
+local TextColor = Color3.fromRGB(255,200,255)
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "AETHERHUB"
+ScreenGui.ResetOnSpawn = false
 
--- Main frame
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.fromOffset(500,400)
 Main.Position = UDim2.fromScale(0.5,0.5)
 Main.AnchorPoint = Vector2.new(0.5,0.5)
-Main.BackgroundColor3 = Color3.fromRGB(120,0,180) -- violet
+Main.BackgroundColor3 = MainColor
+Main.BackgroundTransparency = 0.4
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
@@ -38,13 +64,13 @@ Instance.new("UICorner", Main).CornerRadius = UDim.new(0,15)
 -- Title
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1,0,0,40)
-Title.Text = "AETHER HUB V9 PRO"
+Title.Text = "AETHER HUB V11 - SAFE"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 20
-Title.TextColor3 = Color3.fromRGB(255,200,255)
+Title.TextColor3 = TextColor
 Title.BackgroundTransparency = 1
 
--- Tabs frame
+-- Tabs
 local Tabs = Instance.new("Frame", Main)
 Tabs.Position = UDim2.fromOffset(10,50)
 Tabs.Size = UDim2.fromOffset(150,340)
@@ -55,7 +81,7 @@ Content.Position = UDim2.fromOffset(170,50)
 Content.Size = UDim2.fromOffset(320,340)
 Content.BackgroundTransparency = 1
 
--- Tab buttons creator
+-- Helper functions
 local function createTabButton(text,y)
 	local b = Instance.new("TextButton", Tabs)
 	b.Size = UDim2.fromOffset(150,40)
@@ -64,37 +90,35 @@ local function createTabButton(text,y)
 	b.Font = Enum.Font.Gotham
 	b.TextSize = 14
 	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = Color3.fromRGB(90,0,130) -- violet foncé
-	local uc = Instance.new("UICorner",b)
-	uc.CornerRadius = UDim.new(0,8)
-
+	b.BackgroundColor3 = TabColor
+	Instance.new("UICorner",b)
 	b.MouseEnter:Connect(function()
-		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(130,0,180)}):Play()
+		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=TabHover}):Play()
 	end)
 	b.MouseLeave:Connect(function()
-		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(90,0,130)}):Play()
+		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=TabColor}):Play()
 	end)
 	return b
 end
 
 local FeaturesTab = createTabButton("Features",0)
-local MovementTab = createTabButton("Movement",50)
-local AboutTab = createTabButton("About",100)
+local VisualTab = createTabButton("Visual",50)
 
 -- Pages
 local Pages = {}
 local function createPage(name)
 	local f = Instance.new("Frame", Content)
 	f.Size = UDim2.fromScale(1,1)
-	f.BackgroundTransparency = 1
+	f.BackgroundTransparency = 0.6
+	f.BackgroundColor3 = Color3.fromRGB(80,0,140)
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0,10)
 	f.Visible = false
 	Pages[name] = f
 	return f
 end
 
 local FeaturesPage = createPage("Features")
-local MovementPage = createPage("Movement")
-local AboutPage = createPage("About")
+local VisualPage = createPage("Visual")
 FeaturesPage.Visible = true
 
 local function switchPage(name)
@@ -103,8 +127,7 @@ local function switchPage(name)
 end
 
 FeaturesTab.MouseButton1Click:Connect(function() switchPage("Features") end)
-MovementTab.MouseButton1Click:Connect(function() switchPage("Movement") end)
-AboutTab.MouseButton1Click:Connect(function() switchPage("About") end)
+VisualTab.MouseButton1Click:Connect(function() switchPage("Visual") end)
 
 -- Toggle helper
 local function createToggle(parent,text,y,callback)
@@ -115,206 +138,737 @@ local function createToggle(parent,text,y,callback)
 	b.Font = Enum.Font.Gotham
 	b.TextSize = 14
 	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = Color3.fromRGB(70,0,120) -- violet
+	b.BackgroundColor3 = Color3.fromRGB(70,0,120)
 	Instance.new("UICorner",b)
 	local state=false
-
-	b.MouseEnter:Connect(function()
-		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(120,0,180)}):Play()
-	end)
-	b.MouseLeave:Connect(function()
-		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(70,0,120)}):Play()
-	end)
-
 	b.MouseButton1Click:Connect(function()
 		state = not state
 		b.Text = text.." : "..(state and "ON" or "OFF")
 		callback(state)
 	end)
+	return b
 end
 
--- Slider helper
-local function createSlider(parent,posY,label,initial,callback)
-	local bg = Instance.new("Frame", parent)
-	bg.Position = UDim2.fromOffset(0,posY)
-	bg.Size = UDim2.fromOffset(240,10)
-	bg.BackgroundColor3 = Color3.fromRGB(90,0,130)
-	Instance.new("UICorner",bg)
-	local fill = Instance.new("Frame",bg)
-	fill.Size=UDim2.fromScale(initial,1)
-	fill.BackgroundColor3=Color3.fromRGB(220,120,255)
-	Instance.new("UICorner",fill)
+-- Features
+createToggle(FeaturesPage,"Grab Assist",0,function(v) GrabAssistEnabled=v end)
+createToggle(FeaturesPage,"Anti-Knockback",50,function(v) AntiKBEnabled=v end)
+createToggle(FeaturesPage,"Anti-Ragdoll",100,function(v) AntiRagdollEnabled=v end)
 
-	local dragging=false
-	local valueLabel = Instance.new("TextLabel",parent)
-	valueLabel.Size=UDim2.fromOffset(50,20)
-	valueLabel.Position=UDim2.fromOffset(245,posY-5)
-	valueLabel.TextColor3=Color3.new(1,1,1)
-	valueLabel.BackgroundTransparency=1
-	valueLabel.Font=Enum.Font.Gotham
-	valueLabel.TextSize=14
-	valueLabel.Text=math.floor(initial*100)
+-- Visual
+createToggle(VisualPage,"ESP",0,function(v) ESPEnabled=v end)
+createToggle(VisualPage,"ESP Distance",50,function(v) ESPShowDistance=v end)
+createToggle(VisualPage,"ESP Names",100,function(v) ESPShowNames=v end)
+createToggle(VisualPage,"Wallhack",150,function(v) WallhackEnabled=v end)
 
-	bg.InputBegan:Connect(function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType==Enum.UserInputType.MouseMovement then
-			local pos = math.clamp((input.Position.X-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
-			fill.Size=UDim2.fromScale(pos,1)
-			valueLabel.Text=math.floor(pos*100)
-			callback(pos)
-		end
-	end)
-	return {bg=bg,fill=fill,valueLabel=valueLabel}
-end
+-- Aether Booster - Menu complet avec Speed et Steal Boost
+local AetherBooster = Instance.new("Frame", ScreenGui)
+AetherBooster.Size = UDim2.fromOffset(260,400)
+AetherBooster.Position = UDim2.fromScale(0.7,0.5)
+AetherBooster.AnchorPoint = Vector2.new(0.5,0.5)
+AetherBooster.BackgroundColor3 = MainColor
+AetherBooster.BackgroundTransparency = 0.4
+AetherBooster.BorderSizePixel = 0
+AetherBooster.Active = true
+AetherBooster.Draggable = true
+Instance.new("UICorner", AetherBooster)
+AetherBooster.Visible = false
 
--- Features toggles
-createToggle(FeaturesPage,"ESP",0,function(v)
-	ESPEnabled=v
-	if v then applyESP() else clearESP() end
+-- Titre Aether Booster
+local BoosterTitle = Instance.new("TextLabel", AetherBooster)
+BoosterTitle.Size = UDim2.new(1,0,0,35)
+BoosterTitle.Text = "⚡ AETHER BOOSTER ⚡"
+BoosterTitle.Font = Enum.Font.GothamBold
+BoosterTitle.TextSize = 16
+BoosterTitle.TextColor3 = TextColor
+BoosterTitle.BackgroundTransparency = 1
+
+-- Toggle Speed Boost
+local SpeedBoostToggle = Instance.new("TextButton", AetherBooster)
+SpeedBoostToggle.Size = UDim2.fromOffset(240,35)
+SpeedBoostToggle.Position = UDim2.fromOffset(10,45)
+SpeedBoostToggle.Text = "Speed Boost : OFF"
+SpeedBoostToggle.Font = Enum.Font.Gotham
+SpeedBoostToggle.TextSize = 14
+SpeedBoostToggle.TextColor3 = Color3.new(1,1,1)
+SpeedBoostToggle.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",SpeedBoostToggle)
+SpeedBoostToggle.MouseButton1Click:Connect(function()
+	SpeedEnabled = not SpeedEnabled
+	SpeedBoostToggle.Text = "Speed Boost : "..(SpeedEnabled and "ON" or "OFF")
 end)
 
-createToggle(FeaturesPage,"Wallhack",50,function(v)
-	WallhackEnabled=v
-	if v then applyESP() else clearESP() end
+-- Speed controls
+local SpeedLabel = Instance.new("TextLabel", AetherBooster)
+SpeedLabel.Size = UDim2.fromOffset(240,25)
+SpeedLabel.Position = UDim2.fromOffset(10,90)
+SpeedLabel.Text = "Speed: 24"
+SpeedLabel.Font = Enum.Font.GothamBold
+SpeedLabel.TextSize = 14
+SpeedLabel.TextColor3 = Color3.new(1,1,1)
+SpeedLabel.BackgroundTransparency = 1
+
+local SpeedMinus = Instance.new("TextButton", AetherBooster)
+SpeedMinus.Size = UDim2.fromOffset(70,30)
+SpeedMinus.Position = UDim2.fromOffset(10,120)
+SpeedMinus.Text = "- 1"
+SpeedMinus.Font = Enum.Font.GothamBold
+SpeedMinus.TextSize = 16
+SpeedMinus.TextColor3 = Color3.new(1,1,1)
+SpeedMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",SpeedMinus)
+SpeedMinus.MouseButton1Click:Connect(function()
+	WalkSpeedValue = math.max(24, WalkSpeedValue - 1)
+	SpeedLabel.Text = "Speed: "..WalkSpeedValue
 end)
 
--- Wallhack transparency slider
-createSlider(FeaturesPage,100,"Wallhack Trans",WallhackTransparency,function(pos)
-	WallhackTransparency = pos
-	for player,obj in pairs(ESPObjects) do
-		if obj.WallHighlight and WallhackEnabled then
-			obj.WallHighlight.FillTransparency = WallhackTransparency
-		end
+local SpeedPlus = Instance.new("TextButton", AetherBooster)
+SpeedPlus.Size = UDim2.fromOffset(70,30)
+SpeedPlus.Position = UDim2.fromOffset(90,120)
+SpeedPlus.Text = "+ 1"
+SpeedPlus.Font = Enum.Font.GothamBold
+SpeedPlus.TextSize = 16
+SpeedPlus.TextColor3 = Color3.new(1,1,1)
+SpeedPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",SpeedPlus)
+SpeedPlus.MouseButton1Click:Connect(function()
+	WalkSpeedValue = math.min(50, WalkSpeedValue + 1)
+	SpeedLabel.Text = "Speed: "..WalkSpeedValue
+end)
+
+local SpeedPlus5 = Instance.new("TextButton", AetherBooster)
+SpeedPlus5.Size = UDim2.fromOffset(70,30)
+SpeedPlus5.Position = UDim2.fromOffset(170,120)
+SpeedPlus5.Text = "+ 5"
+SpeedPlus5.Font = Enum.Font.GothamBold
+SpeedPlus5.TextSize = 16
+SpeedPlus5.TextColor3 = Color3.new(1,1,1)
+SpeedPlus5.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",SpeedPlus5)
+SpeedPlus5.MouseButton1Click:Connect(function()
+	WalkSpeedValue = math.min(50, WalkSpeedValue + 5)
+	SpeedLabel.Text = "Speed: "..WalkSpeedValue
+end)
+
+-- Toggle Steal Boost
+local StealBoostToggle = Instance.new("TextButton", AetherBooster)
+StealBoostToggle.Size = UDim2.fromOffset(240,35)
+StealBoostToggle.Position = UDim2.fromOffset(10,165)
+StealBoostToggle.Text = "Steal Boost : OFF"
+StealBoostToggle.Font = Enum.Font.Gotham
+StealBoostToggle.TextSize = 14
+StealBoostToggle.TextColor3 = Color3.new(1,1,1)
+StealBoostToggle.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",StealBoostToggle)
+StealBoostToggle.MouseButton1Click:Connect(function()
+	StealBoostEnabled = not StealBoostEnabled
+	StealBoostToggle.Text = "Steal Boost : "..(StealBoostEnabled and "ON" or "OFF")
+end)
+
+-- Steal Speed controls
+local StealLabel = Instance.new("TextLabel", AetherBooster)
+StealLabel.Size = UDim2.fromOffset(240,25)
+StealLabel.Position = UDim2.fromOffset(10,210)
+StealLabel.Text = "Steal Speed: 27"
+StealLabel.Font = Enum.Font.GothamBold
+StealLabel.TextSize = 14
+StealLabel.TextColor3 = Color3.new(1,1,1)
+StealLabel.BackgroundTransparency = 1
+
+local StealMinus = Instance.new("TextButton", AetherBooster)
+StealMinus.Size = UDim2.fromOffset(70,30)
+StealMinus.Position = UDim2.fromOffset(10,240)
+StealMinus.Text = "- 1"
+StealMinus.Font = Enum.Font.GothamBold
+StealMinus.TextSize = 16
+StealMinus.TextColor3 = Color3.new(1,1,1)
+StealMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",StealMinus)
+StealMinus.MouseButton1Click:Connect(function()
+	StealSpeedValue = math.max(24, StealSpeedValue - 1)
+	StealLabel.Text = "Steal Speed: "..StealSpeedValue
+end)
+
+local StealPlus = Instance.new("TextButton", AetherBooster)
+StealPlus.Size = UDim2.fromOffset(70,30)
+StealPlus.Position = UDim2.fromOffset(90,240)
+StealPlus.Text = "+ 1"
+StealPlus.Font = Enum.Font.GothamBold
+StealPlus.TextSize = 16
+StealPlus.TextColor3 = Color3.new(1,1,1)
+StealPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",StealPlus)
+StealPlus.MouseButton1Click:Connect(function()
+	StealSpeedValue = math.min(35, StealSpeedValue + 1)
+	StealLabel.Text = "Steal Speed: "..StealSpeedValue
+end)
+
+local StealPlus5 = Instance.new("TextButton", AetherBooster)
+StealPlus5.Size = UDim2.fromOffset(70,30)
+StealPlus5.Position = UDim2.fromOffset(170,240)
+StealPlus5.Text = "+ 5"
+StealPlus5.Font = Enum.Font.GothamBold
+StealPlus5.TextSize = 16
+StealPlus5.TextColor3 = Color3.new(1,1,1)
+StealPlus5.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",StealPlus5)
+StealPlus5.MouseButton1Click:Connect(function()
+	StealSpeedValue = math.min(35, StealSpeedValue + 5)
+	StealLabel.Text = "Steal Speed: "..StealSpeedValue
+end)
+
+-- Jump controls
+local JumpLabel = Instance.new("TextLabel", AetherBooster)
+JumpLabel.Size = UDim2.fromOffset(240,25)
+JumpLabel.Position = UDim2.fromOffset(10,285)
+JumpLabel.Text = "Jump Power: 50"
+JumpLabel.Font = Enum.Font.GothamBold
+JumpLabel.TextSize = 14
+JumpLabel.TextColor3 = Color3.new(1,1,1)
+JumpLabel.BackgroundTransparency = 1
+
+local JumpMinus = Instance.new("TextButton", AetherBooster)
+JumpMinus.Size = UDim2.fromOffset(70,30)
+JumpMinus.Position = UDim2.fromOffset(10,315)
+JumpMinus.Text = "- 5"
+JumpMinus.Font = Enum.Font.GothamBold
+JumpMinus.TextSize = 16
+JumpMinus.TextColor3 = Color3.new(1,1,1)
+JumpMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",JumpMinus)
+JumpMinus.MouseButton1Click:Connect(function()
+	JumpPowerValue = math.max(50, JumpPowerValue - 5)
+	JumpLabel.Text = "Jump Power: "..JumpPowerValue
+end)
+
+local JumpPlus = Instance.new("TextButton", AetherBooster)
+JumpPlus.Size = UDim2.fromOffset(70,30)
+JumpPlus.Position = UDim2.fromOffset(90,315)
+JumpPlus.Text = "+ 5"
+JumpPlus.Font = Enum.Font.GothamBold
+JumpPlus.TextSize = 16
+JumpPlus.TextColor3 = Color3.new(1,1,1)
+JumpPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",JumpPlus)
+JumpPlus.MouseButton1Click:Connect(function()
+	JumpPowerValue = math.min(200, JumpPowerValue + 5)
+	JumpLabel.Text = "Jump Power: "..JumpPowerValue
+end)
+
+local JumpPlus10 = Instance.new("TextButton", AetherBooster)
+JumpPlus10.Size = UDim2.fromOffset(70,30)
+JumpPlus10.Position = UDim2.fromOffset(170,315)
+JumpPlus10.Text = "+ 10"
+JumpPlus10.Font = Enum.Font.GothamBold
+JumpPlus10.TextSize = 16
+JumpPlus10.TextColor3 = Color3.new(1,1,1)
+JumpPlus10.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner",JumpPlus10)
+JumpPlus10.MouseButton1Click:Connect(function()
+	JumpPowerValue = math.min(200, JumpPowerValue + 10)
+	JumpLabel.Text = "Jump Power: "..JumpPowerValue
+end)
+
+-- Close button
+local CloseBooster = Instance.new("TextButton", AetherBooster)
+CloseBooster.Size = UDim2.fromOffset(240,30)
+CloseBooster.Position = UDim2.fromOffset(10,360)
+CloseBooster.Text = "Close"
+CloseBooster.Font = Enum.Font.GothamBold
+CloseBooster.TextSize = 14
+CloseBooster.TextColor3 = Color3.new(1,1,1)
+CloseBooster.BackgroundColor3 = Color3.fromRGB(150,0,200)
+Instance.new("UICorner",CloseBooster)
+CloseBooster.MouseButton1Click:Connect(function()
+	AetherBooster.Visible = false
+end)
+
+createToggle(FeaturesPage,"Aether Booster",200,function(v)
+	AetherBooster.Visible = v
+end)
+
+----------------------------------------------------------------
+-- FAKE BYPASS ANTI-CHEAT 😈 (STYLE UNIQUEMENT)
+----------------------------------------------------------------
+local FakeBypassBtn = Instance.new("TextButton", FeaturesPage)
+FakeBypassBtn.Size = UDim2.fromOffset(240,40)
+FakeBypassBtn.Position = UDim2.fromOffset(0,250)
+FakeBypassBtn.Text = "Bypass Anti-Cheat 😈"
+FakeBypassBtn.Font = Enum.Font.GothamBold
+FakeBypassBtn.TextSize = 14
+FakeBypassBtn.TextColor3 = Color3.new(1,1,1)
+FakeBypassBtn.BackgroundColor3 = Color3.fromRGB(150,0,200)
+Instance.new("UICorner", FakeBypassBtn)
+
+local Overlay = Instance.new("Frame", ScreenGui)
+Overlay.Size = UDim2.fromScale(1,1)
+Overlay.BackgroundColor3 = Color3.new(0,0,0)
+Overlay.BackgroundTransparency = 1
+Overlay.Visible = false
+Overlay.ZIndex = 100
+
+local OverlayText = Instance.new("TextLabel", Overlay)
+OverlayText.Size = UDim2.fromScale(1,1)
+OverlayText.BackgroundTransparency = 1
+OverlayText.TextWrapped = true
+OverlayText.TextYAlignment = Enum.TextYAlignment.Center
+OverlayText.TextXAlignment = Enum.TextXAlignment.Center
+OverlayText.Font = Enum.Font.GothamBold
+OverlayText.TextSize = 36  -- AUGMENTÉ DE 26 À 36
+OverlayText.TextColor3 = Color3.new(1,1,1)
+OverlayText.ZIndex = 101
+OverlayText.Text =
+	"injecting 💉...\n\n" ..
+	"https://discord.gg/aSM5RqqgZg\n" ..
+	"By isxm and izxmi 😈"
+
+local LoadBG = Instance.new("Frame", Overlay)
+LoadBG.Size = UDim2.fromScale(0.5,0.025)
+LoadBG.Position = UDim2.fromScale(0.25,0.1)
+LoadBG.BackgroundColor3 = Color3.fromRGB(60,0,90)
+LoadBG.BorderSizePixel = 0
+LoadBG.ZIndex = 101
+Instance.new("UICorner", LoadBG)
+
+local LoadFill = Instance.new("Frame", LoadBG)
+LoadFill.Size = UDim2.fromScale(0,1)
+LoadFill.BackgroundColor3 = Color3.fromRGB(200,100,255)
+LoadFill.BorderSizePixel = 0
+LoadFill.ZIndex = 102
+Instance.new("UICorner", LoadFill)
+
+FakeBypassBtn.MouseButton1Click:Connect(function()
+	Overlay.Visible = true
+	LoadFill.Size = UDim2.fromScale(0,1)
+
+	TweenService:Create(Overlay,TweenInfo.new(0.4),{BackgroundTransparency=0}):Play()
+
+	for i=1,100 do
+		LoadFill.Size = UDim2.fromScale(i/100,1)
+		task.wait(0.03)
+	end
+
+	task.wait(0.4)
+
+	TweenService:Create(Overlay,TweenInfo.new(0.6),{BackgroundTransparency=1}):Play()
+	task.wait(0.6)
+	Overlay.Visible = false
+end)
+----------------------------------------------------------------
+-- END FAKE BYPASS
+----------------------------------------------------------------
+
+-- MOVEMENT SYSTEM - DÉSACTIVÉ (cause respawn sur ce jeu)
+-- L'anti-cheat du jeu détecte toute modification de WalkSpeed
+-- Si vous voulez l'activer à vos risques, décommentez le code ci-dessous
+--[[
+task.spawn(function()
+	while task.wait() do
+		pcall(function()
+			local char = LocalPlayer.Character
+			if char and char:FindFirstChild("Humanoid") then
+				local humanoid = char.Humanoid
+				
+				if humanoid.Health > 0 then
+					local hasBrainrot = false
+					local tool = char:FindFirstChildOfClass("Tool")
+					
+					if tool then
+						local toolName = tool.Name:lower()
+						if toolName:find("brain") then
+							hasBrainrot = true
+						end
+					end
+					
+					local targetSpeed = nil
+					
+					if hasBrainrot and StealBoostEnabled then
+						targetSpeed = StealSpeedValue
+					elseif not hasBrainrot and SpeedEnabled then
+						targetSpeed = WalkSpeedValue
+					end
+					
+					if targetSpeed and humanoid.WalkSpeed < targetSpeed then
+						humanoid.WalkSpeed = targetSpeed
+					end
+					
+					if (SpeedEnabled or StealBoostEnabled) and humanoid.JumpPower < JumpPowerValue then
+						humanoid.JumpPower = JumpPowerValue
+					end
+				end
+			end
+		end)
+	end
+end)
+--]]
+
+-- ANTI-RAGDOLL - Activé manuellement uniquement
+task.spawn(function()
+	while task.wait() do
+		pcall(function()
+			if AntiRagdollEnabled then
+				local char = LocalPlayer.Character
+				if char and char:FindFirstChild("Humanoid") then
+					local humanoid = char.Humanoid
+					if humanoid.Health > 0 then
+						humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+						humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+					end
+				end
+			end
+		end)
 	end
 end)
 
--- Movement toggles
-createToggle(MovementPage,"Speed Boost",0,function(v) SpeedEnabled=v end)
-createToggle(MovementPage,"Jump Boost",60,function(v) JumpEnabled=v end)
-
--- Speed slider
-createSlider(MovementPage,40,"Speed",WalkSpeedValue/76,function(pos)
-	WalkSpeedValue=16+pos*60
-end)
-
--- Jump slider
-createSlider(MovementPage,140,"Jump",JumpPowerValue/100,function(pos)
-	JumpPowerValue=50+pos*100
-end)
-
--- About
-local AboutText = Instance.new("TextLabel",AboutPage)
-AboutText.Size=UDim2.fromScale(1,1)
-AboutText.Text = "AETHER HUB V9 PRO\nESP + Wallhack + Speed + Jump + Pseudo + Lignes\nUI violet stylée et animée\nRejoins mon Discord : https://discord.gg/aSM5RqqgZg"
-AboutText.TextColor3=Color3.new(1,1,1)
-AboutText.BackgroundTransparency=1
-AboutText.Font=Enum.Font.Gotham
-AboutText.TextWrapped=true
-
--- ESP functions
-function clearESP()
-	for player,obj in pairs(ESPObjects) do
-		if obj.Highlight then obj.Highlight:Destroy() end
-		if obj.WallHighlight then obj.WallHighlight:Destroy() end
-		if obj.Billboard then obj.Billboard:Destroy() end
-		if obj.Beam then obj.Beam:Destroy() end
-		if obj.Attachments then for _,a in pairs(obj.Attachments) do a:Destroy() end end
+-- ANTI-KB - Activé manuellement uniquement
+task.spawn(function()
+	while task.wait(0.1) do
+		pcall(function()
+			if AntiKBEnabled then
+				local char = LocalPlayer.Character
+				if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+					local hrp = char.HumanoidRootPart
+					local humanoid = char.Humanoid
+					if humanoid.Health > 0 then
+						local vel = hrp.AssemblyLinearVelocity
+						if math.abs(vel.X) > 40 or math.abs(vel.Z) > 40 then
+							hrp.AssemblyLinearVelocity = Vector3.new(
+								math.clamp(vel.X, -40, 40),
+								vel.Y,
+								math.clamp(vel.Z, -40, 40)
+							)
+						end
+					end
+				end
+			end
+		end)
 	end
-	ESPObjects={}
+end)
+
+-- GRAB ASSIST (E key)
+task.spawn(function()
+	while task.wait(0.5) do
+		pcall(function()
+			if GrabAssistEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+				for _,p in pairs(Players:GetPlayers()) do
+					if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+						local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+						if dist < 10 then
+							-- Code pour grab assist ici
+						end
+					end
+				end
+			end
+		end)
+	end
+end)
+
+-- ESP AMÉLIORÉ
+task.spawn(function()
+	while task.wait() do
+		pcall(function()
+			if ESPEnabled then
+				for _,player in pairs(Players:GetPlayers()) do
+					if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+						local root = player.Character.HumanoidRootPart
+						local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+						
+						if not ESPObjects[player] then
+							local box = Drawing.new("Square")
+							box.Color = Color3.fromRGB(255,0,0)
+							box.Thickness = 2
+							box.Filled = false
+
+							local line = Drawing.new("Line")
+							line.Color = Color3.fromRGB(128,0,128)
+							line.Thickness = 4
+
+							local nameText = Drawing.new("Text")
+							nameText.Color = Color3.fromRGB(255,255,255)
+							nameText.Size = 16
+							nameText.Center = true
+							nameText.Outline = true
+							nameText.Font = 2
+
+							local distText = Drawing.new("Text")
+							distText.Color = Color3.fromRGB(255,255,0)
+							distText.Size = 14
+							distText.Center = true
+							distText.Outline = true
+							distText.Font = 2
+
+							ESPObjects[player] = {box=box, line=line, nameText=nameText, distText=distText}
+						end
+
+						local box = ESPObjects[player].box
+						local line = ESPObjects[player].line
+						local nameText = ESPObjects[player].nameText
+						local distText = ESPObjects[player].distText
+
+						if onScreen then
+							-- Box
+							box.Position = Vector2.new(screenPos.X-20,screenPos.Y-40)
+							box.Size = Vector2.new(40,60)
+							box.Visible = true
+
+							-- Line
+							line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+							line.To = Vector2.new(screenPos.X, screenPos.Y)
+							line.Visible = true
+
+							-- Name
+							if ESPShowNames then
+								nameText.Text = player.Name
+								nameText.Position = Vector2.new(screenPos.X, screenPos.Y - 50)
+								nameText.Visible = true
+							else
+								nameText.Visible = false
+							end
+
+							-- Distance
+							if ESPShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+								local distance = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
+								distText.Text = math.floor(distance).."m"
+								distText.Position = Vector2.new(screenPos.X, screenPos.Y + 15)
+								distText.Visible = true
+							else
+								distText.Visible = false
+							end
+						else
+							box.Visible = false
+							line.Visible = false
+							nameText.Visible = false
+							distText.Visible = false
+						end
+					else
+						if ESPObjects[player] then
+							ESPObjects[player].box:Remove()
+							ESPObjects[player].line:Remove()
+							ESPObjects[player].nameText:Remove()
+							ESPObjects[player].distText:Remove()
+							ESPObjects[player] = nil
+						end
+					end
+				end
+			else
+				-- Nettoyer tous les ESP quand désactivé
+				for player, objects in pairs(ESPObjects) do
+					if objects.box then objects.box:Remove() end
+					if objects.line then objects.line:Remove() end
+					if objects.nameText then objects.nameText:Remove() end
+					if objects.distText then objects.distText:Remove() end
+				end
+				ESPObjects = {}
+			end
+		end)
+	end
+end)
+
+----------------------------------------------------------------
+-- WALLHACK OPTIMISÉ - ANTI-LAG VERSION 🎯
+----------------------------------------------------------------
+
+-- Fonction pour vérifier si c'est un mur/obstacle important
+local function isWallOrObstacle(part)
+	local size = part.Size
+	-- Doit être assez grand pour bloquer la vue
+	if size.Magnitude < MinPartSize then
+		return false
+	end
+	
+	-- Ignore les parts trop petites ou en forme de bâton
+	if size.X < 1 and size.Z < 1 then
+		return false
+	end
+	
+	return true
 end
 
-function createESP(player)
-	if player==LocalPlayer then return end
-	local function apply(char)
-		if not (ESPEnabled or WallhackEnabled) then return end
-
-		-- Normal ESP
-		if ESPEnabled then
-			if not char:FindFirstChild("AetherESP") then
-				local h = Instance.new("Highlight",char)
-				h.Name="AetherESP"
-				h.FillColor = Color3.new(1,0,0)
-				h.FillTransparency = 0
-				h.OutlineColor = Color3.new(1,1,1)
-				h.OutlineTransparency = 0.3
+-- Fonction pour vérifier si c'est une part de joueur
+local function isPlayerPart(obj)
+	local parent = obj.Parent
+	local depth = 0
+	
+	while parent and depth < 5 do -- Limite la profondeur pour éviter les lags
+		if parent:IsA("Model") then
+			if Players:GetPlayerFromCharacter(parent) then
+				return true
+			end
+			-- Vérifie aussi les noms communs de personnages
+			if parent.Name == "Character" or parent:FindFirstChild("Humanoid") then
+				return true
 			end
 		end
-
-		-- Wallhack ESP
-		if WallhackEnabled then
-			if not char:FindFirstChild("AetherWall") then
-				local wh = Instance.new("Highlight",char)
-				wh.Name="AetherWall"
-				wh.FillColor = Color3.new(1,0,0)
-				wh.FillTransparency = WallhackTransparency
-				wh.OutlineColor = Color3.new(1,1,1)
-				wh.OutlineTransparency = 0.3
-			end
-		end
-
-		-- Pseudo
-		if not char:FindFirstChild("AetherName") then
-			local bill = Instance.new("BillboardGui",char)
-			bill.Name="AetherName"
-			bill.Adornee=char:WaitForChild("Head")
-			bill.Size=UDim2.fromOffset(200,50)
-			bill.StudsOffset=Vector3.new(0,2.5,0)
-			bill.AlwaysOnTop=true
-			local txt = Instance.new("TextLabel",bill)
-			txt.Size=UDim2.fromScale(1,1)
-			txt.BackgroundTransparency=1
-			txt.Text=player.Name
-			txt.TextColor3=Color3.new(1,0,0)
-			txt.Font=Enum.Font.GothamBold
-			txt.TextSize=14
-		end
-
-		-- Lignes bleues
-		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-			local hrp1=LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-			local hrp2=char:FindFirstChild("HumanoidRootPart")
-			if hrp1 and hrp2 and not ESPObjects[player] then
-				local att1=Instance.new("Attachment",hrp1)
-				att1.Name="Aether_Att1_"..player.Name
-				local att2=Instance.new("Attachment",hrp2)
-				att2.Name="Aether_Att2_"..player.Name
-				local beam=Instance.new("Beam")
-				beam.Name="AetherLine_"..player.Name
-				beam.Attachment0=att1
-				beam.Attachment1=att2
-				beam.Width0,beam.Width1=0.4,0.4
-				beam.Color=ColorSequence.new(Color3.fromRGB(0,120,255))
-				beam.LightEmission=1
-				beam.FaceCamera=true
-				beam.Parent=hrp1
-				ESPObjects[player]={Highlight=char:FindFirstChild("AetherESP"),WallHighlight=char:FindFirstChild("AetherWall"),Billboard=char:FindFirstChild("AetherName"),Beam=beam,Attachments={att1,att2}}
-			end
-		end
+		parent = parent.Parent
+		depth = depth + 1
 	end
-	if player.Character then apply(player.Character) end
-	player.CharacterAdded:Connect(apply)
+	
+	return false
 end
 
-function applyESP()
-	for _,p in pairs(Players:GetPlayers()) do createESP(p) end
-end
-
-for _,p in pairs(Players:GetPlayers()) do createESP(p) end
-Players.PlayerAdded:Connect(createESP)
-
--- Speed & Jump apply
-RunService.RenderStepped:Connect(function()
-	local char=LocalPlayer.Character
-	if char then
-		local hum=char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.WalkSpeed = SpeedEnabled and WalkSpeedValue or 16
-			hum.JumpPower = JumpEnabled and JumpPowerValue or 50
-		end
+-- WALLHACK OPTIMISÉ
+task.spawn(function()
+	while task.wait(WallhackUpdateRate) do
+		pcall(function()
+			if WallhackEnabled then
+				local currentTime = tick()
+				
+				-- Re-scan complet uniquement si nécessaire
+				if currentTime - LastScan > SCAN_INTERVAL or next(CachedParts) == nil then
+					LastScan = currentTime
+					
+					-- Reset le cache
+					for obj, data in pairs(CachedParts) do
+						if obj and obj.Parent then
+							obj.Transparency = data.OriginalTransparency
+						end
+					end
+					CachedParts = {}
+					
+					-- Nouveau scan optimisé
+					local partsToProcess = {}
+					
+					-- Collecte intelligente selon le mode
+					if WallhackMode == "WallsOnly" then
+						-- Uniquement les dossiers susceptibles de contenir des murs
+						local folders = {"Map", "Walls", "Buildings", "Structure", "World"}
+						for _, folderName in pairs(folders) do
+							local folder = workspace:FindFirstChild(folderName)
+							if folder then
+								for _, obj in pairs(folder:GetDescendants()) do
+									if obj:IsA("BasePart") then
+										table.insert(partsToProcess, obj)
+									end
+								end
+							end
+						end
+					elseif WallhackMode == "Smart" then
+						-- Filtre intelligent : grands objets seulement
+						for _, obj in pairs(workspace:GetDescendants()) do
+							if obj:IsA("BasePart") and obj.Size.Magnitude >= MinPartSize then
+								table.insert(partsToProcess, obj)
+							end
+						end
+					else -- "Full"
+						-- Mode complet (peut lag sur grosses maps)
+						for _, obj in pairs(workspace:GetDescendants()) do
+							if obj:IsA("BasePart") then
+								table.insert(partsToProcess, obj)
+							end
+						end
+					end
+					
+					-- Traite les parts collectées
+					for _, obj in pairs(partsToProcess) do
+						if obj.Name ~= "HumanoidRootPart" and obj.Name ~= "Head" and obj.Name ~= "Baseplate" then
+							if not isPlayerPart(obj) then
+								-- Vérifie si c'est pertinent
+								if WallhackMode == "WallsOnly" or isWallOrObstacle(obj) or WallhackMode == "Full" then
+									-- Cache les données originales
+									CachedParts[obj] = {
+										OriginalTransparency = obj.Transparency,
+										OriginalCanCollide = obj.CanCollide
+									}
+									
+									-- Applique la transparence
+									obj.Transparency = math.max(obj.Transparency, WallhackTransparency)
+								end
+							end
+						end
+					end
+				else
+					-- Mise à jour légère : vérifie juste que les objets cachés existent toujours
+					for obj, data in pairs(CachedParts) do
+						if not obj or not obj.Parent then
+							CachedParts[obj] = nil
+						else
+							-- Maintient la transparence
+							if obj.Transparency < WallhackTransparency then
+								obj.Transparency = WallhackTransparency
+							end
+						end
+					end
+				end
+			else
+				-- Restaure TOUT quand désactivé
+				for obj, data in pairs(CachedParts) do
+					if obj and obj.Parent then
+						obj.Transparency = data.OriginalTransparency
+					end
+				end
+				CachedParts = {}
+				LastScan = 0
+			end
+		end)
 	end
 end)
+
+-- CONTRÔLES WALLHACK DANS L'UI
+
+-- Toggle mode Wallhack
+local WallhackModeBtn = Instance.new("TextButton", VisualPage)
+WallhackModeBtn.Size = UDim2.fromOffset(240,40)
+WallhackModeBtn.Position = UDim2.fromOffset(0,200)
+WallhackModeBtn.Text = "Mode: Smart"
+WallhackModeBtn.Font = Enum.Font.Gotham
+WallhackModeBtn.TextSize = 14
+WallhackModeBtn.TextColor3 = Color3.new(1,1,1)
+WallhackModeBtn.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner", WallhackModeBtn)
+
+WallhackModeBtn.MouseButton1Click:Connect(function()
+	if WallhackMode == "Smart" then
+		WallhackMode = "WallsOnly"
+	elseif WallhackMode == "WallsOnly" then
+		WallhackMode = "Full"
+	else
+		WallhackMode = "Smart"
+	end
+	WallhackModeBtn.Text = "Mode: "..WallhackMode
+	LastScan = 0 -- Force un nouveau scan
+end)
+
+-- Contrôles transparence
+local TranspLabel = Instance.new("TextLabel", VisualPage)
+TranspLabel.Size = UDim2.fromOffset(240,25)
+TranspLabel.Position = UDim2.fromOffset(0,250)
+TranspLabel.Text = "Transparency: 85%"
+TranspLabel.Font = Enum.Font.Gotham
+TranspLabel.TextSize = 14
+TranspLabel.TextColor3 = Color3.new(1,1,1)
+TranspLabel.BackgroundTransparency = 1
+
+local TranspMinus = Instance.new("TextButton", VisualPage)
+TranspMinus.Size = UDim2.fromOffset(70,30)
+TranspMinus.Position = UDim2.fromOffset(0,280)
+TranspMinus.Text = "- 5%"
+TranspMinus.Font = Enum.Font.Gotham
+TranspMinus.TextSize = 14
+TranspMinus.TextColor3 = Color3.new(1,1,1)
+TranspMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner", TranspMinus)
+
+TranspMinus.MouseButton1Click:Connect(function()
+	WallhackTransparency = math.max(0.5, WallhackTransparency - 0.05)
+	TranspLabel.Text = "Transparency: "..math.floor(WallhackTransparency*100).."%"
+	LastScan = 0
+end)
+
+local TranspPlus = Instance.new("TextButton", VisualPage)
+TranspPlus.Size = UDim2.fromOffset(70,30)
+TranspPlus.Position = UDim2.fromOffset(85,280)
+TranspPlus.Text = "+ 5%"
+TranspPlus.Font = Enum.Font.Gotham
+TranspPlus.TextSize = 14
+TranspPlus.TextColor3 = Color3.new(1,1,1)
+TranspPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
+Instance.new("UICorner", TranspPlus)
+
+TranspPlus.MouseButton1Click:Connect(function()
+	WallhackTransparency = math.min(0.95, WallhackTransparency + 0.05)
+	TranspLabel.Text = "Transparency: "..math.floor(WallhackTransparency*100).."%"
+	LastScan = 0
+end)
+
+print("✅ AETHER HUB V11 SAFE - Loaded successfully!")
+print("🎯 Wallhack optimisé activé - Smart mode")
+print("💜 By isxm and izxmi")
