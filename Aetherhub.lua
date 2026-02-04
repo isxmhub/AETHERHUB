@@ -1,5 +1,6 @@
--- AETHER HUB V11 - SAFE VERSION (NO AUTO RESPAWN)
--- Client-side safe
+-- AETHER HUB V11 - AETHER STYLE 💉
+-- UI moderne + Auto Grab + Aether Speed + ESP Brainrot intégré
+-- By isxm and izxmi
 
 -- Services
 local Players = game:GetService("Players")
@@ -16,625 +17,1222 @@ repeat task.wait() until LocalPlayer.Character
 local ESPEnabled = false
 local ESPShowDistance = false
 local ESPShowNames = false
+local ESPBrainrotEnabled = false  -- NOUVEAU: ESP pour les brainrots
 local WallhackEnabled = false
-local SpeedEnabled = false
-local StealBoostEnabled = false
 local GrabAssistEnabled = false
 local AntiKBEnabled = false
 local AntiRagdollEnabled = false
 local AutoGrabEnabled = false  
-local WalkSpeedValue = 24
-local StealSpeedValue = 27
-local JumpPowerValue = 50
-local AutoGrabRange = 20  -- Distance réduite pour pas lag
+local AutoGrabRange = 35
 local ESPObjects = {}
+local ESPBrainrotObjects = {}  -- NOUVEAU: Table pour ESP brainrot
 local WallhackObjects = {}
 
--- Configurations Wallhack Optimisé
+-- Configurations Wallhack
 local WallhackMode = "Smart"
 local WallhackTransparency = 0.85
 local MinPartSize = 5
 local WallhackUpdateRate = 2
 
--- Cache pour éviter de re-scanner constamment
+-- Cache
 local CachedParts = {}
 local LastScan = 0
 local SCAN_INTERVAL = 10
 
--- UI Colors
-local MainColor = Color3.fromRGB(120,0,180)
-local TabColor = Color3.fromRGB(90,0,130)
-local TabHover = Color3.fromRGB(130,0,180)
-local TextColor = Color3.fromRGB(255,200,255)
+-- Aether Speed Config
+local velocityConnection = nil
+local isSpeedEnabled = false
+local speedValue = 25
 
--- GUI
+-- ESP Brainrot Connections
+local espBrainrotConnections = {}
+
+----------------------------------------------------------------
+-- 📋 LISTE COMPLÈTE DES BRAINROTS
+----------------------------------------------------------------
+local BRAINROT_NAMES = {
+	-- Common
+	"noobini pizzanini", "lirili larila", "tim cheese", "flurifura", 
+	"talpa di fero", "svinia bombardino", "svinina bombardino",
+	"pipi kiwi", "racooni jandelini", "pipi corni", "noobini santanini",
+	
+	-- Rare
+	"trippi troppi", "gangster footera", "bandito bobritto", "boneca ambalabu",
+	"cacto hipopotamo", "ta ta ta ta sahur", "tric trac baraboom", 
+	"pipi avocado", "frogo elfo",
+	
+	-- Epic
+	"cappuccino assassino", "brr brr patapin", "brr brr patapim",
+	"trulimero trulicina", "bambini crostini", "bananita dolphinita",
+	"perochello lemonchello", "brri brri bicus dicus bombicus",
+	"avocadini guffo", "salamino penguino", "ti ti ti sahur",
+	"penguin tree", "penguino cocosino",
+	
+	-- Legendary
+	"burbalini loliloli", "burbaloni loliloli", "chimpanzini bananini", 
+	"chimpazini bananini", "ballerina cappuccina", "chef crabracadabra",
+	"lionel cactuseli", "glorbo fruttodrillo", "blueberrini octapusini",
+	"blueberrini octopusini", "strawberelli flamingelli", 
+	"pandaccini bananini", "cocosini mama", "sigma boy", "sigma girl",
+	"pi pi watermelon", "chocco bunny", "sealo regalo",
+	
+	-- Mythic
+	"frigo camelo", "orangutini ananasini", "orangutini ananassini",
+	"rhino toasterino", "bombardiro crocodilo", "bombombini gusini",
+	"cavallo virtuso", "gorillo watermelondrillo", "avocadorilla",
+	"tob tobi tobi", "gangazelli trulala", "ganganzelli trulala",
+	"cachorrito melonito", "elefanto frigo", "toiletto focaccino",
+	"te te te sahur", "tracoducotulu delapeladustuz", "lerulerulerule",
+	"jingle jingle sahur", "tree tree tree sahur", "carloo",
+	"spioniro golubiro", "zibra zubra zibralini", "tigrilini watermelini",
+	"carrotini brainini", "bananito bandito",
+	
+	-- Brainrot God
+	"cocofanta elefanto", "coco elefanto", "girafa celestre",
+	"gyattatino nyanino", "gattatino nyanino", "chihuanini taconini",
+	"matteo", "tralalero tralala", "espresso signora",
+	"odin din din dun", "statutino libertino", "trenostruzzo turbo 3000",
+	"ballerino lololo", "los orcalitos", "dug dug dug",
+	"tralalita tralala", "urubini flamenguini", "los bombinitos",
+	"trigoligre frutonni", "orcalero orcala", "bulbito bandito traktorito",
+	"los crocodilitos", "los crocodillitos", "piccione macchina",
+	"trippi troppi troppa trippa", "los tungtuntuncitos", "los tungtungtungcitos",
+	"tukanno bananno", "alessio", "tipi topi taco", "extinct ballerina",
+	"capi taco", "gattito tacoto", "pakrahmatmamat", "tractoro dinosauro",
+	"corn corn corn sahur", "squalanana", "los tipi tacos",
+	"bombardini tortinii", "pop pop sahur", "ballerina peppermintina",
+	"yeti claus", "ginger globo", "frio ninja", "ginger cisterna",
+	"cacasito satalito", "aquanaut", "tartaruga cisterna",
+	
+	-- Secret
+	"las sis", "la vacca saturno saturnita", "la vacca staturno saturnita",
+	"chimpanzini spiderini", "chimpanzini_spiderini", "extinct tralalero",
+	"extinct matteo", "los tralaleirtos", "los tralaleritos",
+	"la karkerkar combinasion", "karker sahur", "las tralaleritas",
+	"job job job sahur", "los spyderinis", "los spyderrinis",
+	"perrito burrito", "graipuss medussi", "los jobcitos",
+	"la grande combinasion", "tacorita bicicleta", "nuclearo dinossauro",
+	"los 67", "money money puggy", "chillin chili", "la extinct grande",
+	"los tacoritas", "los tortus", "tang tang keletang", "tang tang kelentang",
+	"garama and madundung", "la secret combinasion", "tortuginni dragonfruitini",
+	"torrtuginni dragonfruitini", "pot hotspot", "to to to sahur",
+	"las vaquitas saturnitas", "chicleteira bicicleteira", "agarrini la palini",
+	"mariachi corazoni", "dragon cannelloni", "los combinasionas",
+	"la cucaracha", "karkerkar kurkur", "los hotspotsitos",
+	"la sahur combinasion", "quesadilla crocodila", "esok sekolah",
+	"lost matteos", "los matteos", "dul dul dul", "blackhole goat",
+	"nooo my hotspot", "sammyini spyderini", "spaghetti tualetti",
+	"67 brainrot", "67", "los noo my hotspotsitos", "celularcini viciosini",
+	"tralaledon", "tictac sahur", "la supreme combinasion",
+	"ketupat kepat", "ketchuru and musturu", "burguro and fryuro",
+	"please my present", "la grande", "la vacca prese presente",
+	"ho ho ho sahur", "chicleteira noelteira", "cooki and milki",
+	"la jolly grande", "capitano moby", "cerberus",
+	
+	-- OG
+	"skibidi toilet", "strawberry elephant", "meowl",
+	
+	-- Mots-clés génériques
+	"brain", "rot", "brainrot"
+}
+
+-- Fonction pour vérifier si c'est un brainrot
+local function isBrainrot(name)
+	local nameLower = name:lower()
+	for _, brainrotName in pairs(BRAINROT_NAMES) do
+		if nameLower:find(brainrotName) or brainrotName:find(nameLower) then
+			return true
+		end
+	end
+	return false
+end
+
+----------------------------------------------------------------
+-- UI PRINCIPALE - AETHER STYLE 💉
+----------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "AETHERHUB"
 ScreenGui.ResetOnSpawn = false
 
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.fromOffset(500,400)
-Main.Position = UDim2.fromScale(0.5,0.5)
-Main.AnchorPoint = Vector2.new(0.5,0.5)
-Main.BackgroundColor3 = MainColor
-Main.BackgroundTransparency = 0.4
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,15)
+-- Main Frame
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.fromOffset(500, 400)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
 
--- Title
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1,0,0,40)
-Title.Text = "AETHER HUB V11 - SAFE"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
-Title.TextColor3 = TextColor
-Title.BackgroundTransparency = 1
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 12)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Thickness = 2
+MainStroke.Color = Color3.fromRGB(138, 43, 226)
+MainStroke.Transparency = 0.3
+
+-- Titre principal
+local TitleLabel = Instance.new("TextLabel", MainFrame)
+TitleLabel.Size = UDim2.new(1, -80, 0, 40)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "aether hub v11 💉"
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+TitleLabel.TextSize = 20
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+----------------------------------------------------------------
+-- BOUTON MINIMIZE EN HAUT À DROITE
+----------------------------------------------------------------
+local MinimizeButton = Instance.new("TextButton", MainFrame)
+MinimizeButton.Size = UDim2.fromOffset(40, 40)
+MinimizeButton.Position = UDim2.new(1, -50, 0, 0)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MinimizeButton.Text = "-"
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextColor3 = Color3.fromRGB(200, 150, 255)
+MinimizeButton.TextSize = 24
+MinimizeButton.AutoButtonColor = false
+
+local MinimizeCorner = Instance.new("UICorner", MinimizeButton)
+MinimizeCorner.CornerRadius = UDim.new(0, 8)
+
+local MinimizeStroke = Instance.new("UIStroke", MinimizeButton)
+MinimizeStroke.Thickness = 2
+MinimizeStroke.Color = Color3.fromRGB(138, 43, 226)
+
+-- Mini Frame (version réduite)
+local MiniFrame = Instance.new("TextButton", ScreenGui)
+MiniFrame.Size = UDim2.fromOffset(60, 60)
+MiniFrame.Position = UDim2.new(0.5, -30, 0.5, -30)
+MiniFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MiniFrame.Text = "AH"
+MiniFrame.Font = Enum.Font.GothamBold
+MiniFrame.TextColor3 = Color3.fromRGB(200, 150, 255)
+MiniFrame.TextSize = 20
+MiniFrame.AutoButtonColor = false
+MiniFrame.Visible = false
+MiniFrame.Active = true
+MiniFrame.Draggable = true
+
+local MiniCorner = Instance.new("UICorner", MiniFrame)
+MiniCorner.CornerRadius = UDim.new(0, 12)
+
+local MiniStroke = Instance.new("UIStroke", MiniFrame)
+MiniStroke.Thickness = 2
+MiniStroke.Color = Color3.fromRGB(138, 43, 226)
+
+-- Hover effect minimize button
+MinimizeButton.MouseEnter:Connect(function()
+	MinimizeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+end)
+
+MinimizeButton.MouseLeave:Connect(function()
+	MinimizeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+end)
+
+-- Toggle minimize
+local isMinimized = false
+MinimizeButton.MouseButton1Click:Connect(function()
+	isMinimized = true
+	TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+		Size = UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1
+	}):Play()
+	TweenService:Create(MainStroke, TweenInfo.new(0.3), {Transparency = 1}):Play()
+	
+	task.wait(0.3)
+	MainFrame.Visible = false
+	MiniFrame.Visible = true
+	
+	TweenService:Create(MiniFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+		Size = UDim2.fromOffset(60, 60)
+	}):Play()
+end)
+
+-- Restore from mini
+MiniFrame.MouseButton1Click:Connect(function()
+	TweenService:Create(MiniFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+		Size = UDim2.fromOffset(0, 0)
+	}):Play()
+	
+	task.wait(0.3)
+	MiniFrame.Visible = false
+	MainFrame.Visible = true
+	MainFrame.Size = UDim2.fromOffset(0, 0)
+	MainFrame.BackgroundTransparency = 1
+	MainStroke.Transparency = 1
+	
+	TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+		Size = UDim2.fromOffset(500, 400),
+		BackgroundTransparency = 0
+	}):Play()
+	TweenService:Create(MainStroke, TweenInfo.new(0.3), {Transparency = 0.3}):Play()
+	isMinimized = false
+end)
+
+-- Hover effect mini frame
+MiniFrame.MouseEnter:Connect(function()
+	TweenService:Create(MiniFrame, TweenInfo.new(0.2), {
+		Size = UDim2.fromOffset(70, 70),
+		BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+	}):Play()
+end)
+
+MiniFrame.MouseLeave:Connect(function()
+	TweenService:Create(MiniFrame, TweenInfo.new(0.2), {
+		Size = UDim2.fromOffset(60, 60),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	}):Play()
+end)
+
+----------------------------------------------------------------
+-- TABS SYSTEM (ANCIEN STYLE)
+----------------------------------------------------------------
+local TabsFrame = Instance.new("Frame", MainFrame)
+TabsFrame.Size = UDim2.fromOffset(150, 340)
+TabsFrame.Position = UDim2.fromOffset(10, 50)
+TabsFrame.BackgroundTransparency = 1
+
+local ContentFrame = Instance.new("Frame", MainFrame)
+ContentFrame.Size = UDim2.fromOffset(320, 340)
+ContentFrame.Position = UDim2.fromOffset(170, 50)
+ContentFrame.BackgroundTransparency = 1
+
+-- Couleurs tabs
+local TabColor = Color3.fromRGB(30, 30, 35)
+local TabHover = Color3.fromRGB(50, 50, 55)
+local TabActive = Color3.fromRGB(138, 43, 226)
+
+local function createTab(text, yPos)
+	local tab = Instance.new("TextButton", TabsFrame)
+	tab.Size = UDim2.fromOffset(150, 40)
+	tab.Position = UDim2.fromOffset(0, yPos)
+	tab.BackgroundColor3 = TabColor
+	tab.Text = text
+	tab.Font = Enum.Font.GothamBold
+	tab.TextColor3 = Color3.fromRGB(200, 150, 255)
+	tab.TextSize = 14
+	tab.AutoButtonColor = false
+	
+	local tabCorner = Instance.new("UICorner", tab)
+	tabCorner.CornerRadius = UDim.new(0, 8)
+	
+	local tabStroke = Instance.new("UIStroke", tab)
+	tabStroke.Thickness = 2
+	tabStroke.Color = Color3.fromRGB(80, 80, 90)
+	
+	tab.MouseEnter:Connect(function()
+		if tab.BackgroundColor3 ~= TabActive then
+			TweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = TabHover}):Play()
+		end
+	end)
+	
+	tab.MouseLeave:Connect(function()
+		if tab.BackgroundColor3 ~= TabActive then
+			TweenService:Create(tab, TweenInfo.new(0.2), {BackgroundColor3 = TabColor}):Play()
+		end
+	end)
+	
+	return tab
+end
+
+local FeaturesTab = createTab("Features", 0)
+local VisualTab = createTab("Visual", 50)
+
+-- Pages
+local Pages = {}
+local function createPage(name)
+	local page = Instance.new("ScrollingFrame", ContentFrame)
+	page.Size = UDim2.fromScale(1, 1)
+	page.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+	page.BackgroundTransparency = 0.3
+	page.BorderSizePixel = 0
+	page.ScrollBarThickness = 6
+	page.ScrollBarImageColor3 = Color3.fromRGB(138, 43, 226)
+	page.CanvasSize = UDim2.fromOffset(0, 0)
+	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	page.Visible = false
+	
+	local pageCorner = Instance.new("UICorner", page)
+	pageCorner.CornerRadius = UDim.new(0, 10)
+	
+	local pageLayout = Instance.new("UIListLayout", page)
+	pageLayout.Padding = UDim.new(0, 10)
+	pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	
+	local pagePadding = Instance.new("UIPadding", page)
+	pagePadding.PaddingTop = UDim.new(0, 10)
+	pagePadding.PaddingLeft = UDim.new(0, 10)
+	pagePadding.PaddingRight = UDim.new(0, 10)
+	pagePadding.PaddingBottom = UDim.new(0, 10)
+	
+	Pages[name] = page
+	return page
+end
+
+local FeaturesPage = createPage("Features")
+local VisualPage = createPage("Visual")
+FeaturesPage.Visible = true
+FeaturesTab.BackgroundColor3 = TabActive
+
+local currentTab = FeaturesTab
+
+local function switchPage(name, tab)
+	for _, page in pairs(Pages) do
+		page.Visible = false
+	end
+	Pages[name].Visible = true
+	
+	if currentTab then
+		currentTab.BackgroundColor3 = TabColor
+	end
+	tab.BackgroundColor3 = TabActive
+	currentTab = tab
+end
+
+FeaturesTab.MouseButton1Click:Connect(function()
+	switchPage("Features", FeaturesTab)
+end)
+
+VisualTab.MouseButton1Click:Connect(function()
+	switchPage("Visual", VisualTab)
+end)
+
+----------------------------------------------------------------
+-- FONCTION POUR CRÉER DES TOGGLES STYLE AETHER
+----------------------------------------------------------------
+local function createAetherToggle(parent, text, callback)
+	local toggleFrame = Instance.new("Frame", parent)
+	toggleFrame.Size = UDim2.fromOffset(300, 45)
+	toggleFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+	toggleFrame.BorderSizePixel = 0
+	
+	local toggleCorner = Instance.new("UICorner", toggleFrame)
+	toggleCorner.CornerRadius = UDim.new(0, 8)
+	
+	local toggleStroke = Instance.new("UIStroke", toggleFrame)
+	toggleStroke.Thickness = 2
+	toggleStroke.Color = Color3.fromRGB(80, 80, 90)
+	
+	local toggleButton = Instance.new("TextButton", toggleFrame)
+	toggleButton.Size = UDim2.fromOffset(90, 35)
+	toggleButton.Position = UDim2.fromOffset(200, 5)
+	toggleButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+	toggleButton.Text = "ENABLE"
+	toggleButton.Font = Enum.Font.GothamBold
+	toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	toggleButton.TextSize = 12
+	toggleButton.AutoButtonColor = false
+	
+	local btnCorner = Instance.new("UICorner", toggleButton)
+	btnCorner.CornerRadius = UDim.new(0, 6)
+	
+	local btnStroke = Instance.new("UIStroke", toggleButton)
+	btnStroke.Thickness = 2
+	btnStroke.Color = Color3.fromRGB(180, 100, 255)
+	
+	local labelText = Instance.new("TextLabel", toggleFrame)
+	labelText.Size = UDim2.fromOffset(185, 35)
+	labelText.Position = UDim2.fromOffset(10, 5)
+	labelText.BackgroundTransparency = 1
+	labelText.Text = text
+	labelText.Font = Enum.Font.GothamBold
+	labelText.TextColor3 = Color3.fromRGB(200, 150, 255)
+	labelText.TextSize = 14
+	labelText.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local isEnabled = false
+	
+	toggleButton.MouseEnter:Connect(function()
+		toggleButton.BackgroundColor3 = Color3.fromRGB(158, 63, 246)
+	end)
+	
+	toggleButton.MouseLeave:Connect(function()
+		if isEnabled then
+			toggleButton.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+		else
+			toggleButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+		end
+	end)
+	
+	toggleButton.MouseButton1Click:Connect(function()
+		isEnabled = not isEnabled
+		
+		if isEnabled then
+			toggleButton.Text = "DISABLE"
+			toggleButton.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+			btnStroke.Color = Color3.fromRGB(255, 100, 120)
+			toggleStroke.Color = Color3.fromRGB(255, 60, 100)
+		else
+			toggleButton.Text = "ENABLE"
+			toggleButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+			btnStroke.Color = Color3.fromRGB(180, 100, 255)
+			toggleStroke.Color = Color3.fromRGB(80, 80, 90)
+		end
+		
+		callback(isEnabled)
+	end)
+	
+	return toggleFrame
+end
+
+----------------------------------------------------------------
+-- TOGGLES FEATURES
+----------------------------------------------------------------
+createAetherToggle(FeaturesPage, "auto grab 🧲", function(v) AutoGrabEnabled = v end)
+createAetherToggle(FeaturesPage, "grab assist", function(v) GrabAssistEnabled = v end)
+createAetherToggle(FeaturesPage, "anti knockback", function(v) AntiKBEnabled = v end)
+createAetherToggle(FeaturesPage, "anti ragdoll", function(v) AntiRagdollEnabled = v end)
+
+-- Allow/Disallow Friends Toggle
+local AllowFriendsFrame = Instance.new("Frame", FeaturesPage)
+AllowFriendsFrame.Size = UDim2.fromOffset(300, 45)
+AllowFriendsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+AllowFriendsFrame.BorderSizePixel = 0
+
+local AllowFriendsCorner = Instance.new("UICorner", AllowFriendsFrame)
+AllowFriendsCorner.CornerRadius = UDim.new(0, 8)
+
+local AllowFriendsStroke = Instance.new("UIStroke", AllowFriendsFrame)
+AllowFriendsStroke.Thickness = 2
+AllowFriendsStroke.Color = Color3.fromRGB(80, 80, 90)
+
+local AllowFriendsButton = Instance.new("TextButton", AllowFriendsFrame)
+AllowFriendsButton.Size = UDim2.fromOffset(90, 35)
+AllowFriendsButton.Position = UDim2.fromOffset(200, 5)
+AllowFriendsButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+AllowFriendsButton.Text = "TOGGLE"
+AllowFriendsButton.Font = Enum.Font.GothamBold
+AllowFriendsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AllowFriendsButton.TextSize = 12
+AllowFriendsButton.AutoButtonColor = false
+
+local AllowFriendsBtnCorner = Instance.new("UICorner", AllowFriendsButton)
+AllowFriendsBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local AllowFriendsBtnStroke = Instance.new("UIStroke", AllowFriendsButton)
+AllowFriendsBtnStroke.Thickness = 2
+AllowFriendsBtnStroke.Color = Color3.fromRGB(180, 100, 255)
+
+local AllowFriendsLabel = Instance.new("TextLabel", AllowFriendsFrame)
+AllowFriendsLabel.Size = UDim2.fromOffset(185, 35)
+AllowFriendsLabel.Position = UDim2.fromOffset(10, 5)
+AllowFriendsLabel.BackgroundTransparency = 1
+AllowFriendsLabel.Text = "allow/disallow friends"
+AllowFriendsLabel.Font = Enum.Font.GothamBold
+AllowFriendsLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+AllowFriendsLabel.TextSize = 14
+AllowFriendsLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+AllowFriendsButton.MouseEnter:Connect(function()
+	AllowFriendsButton.BackgroundColor3 = Color3.fromRGB(158, 63, 246)
+end)
+
+AllowFriendsButton.MouseLeave:Connect(function()
+	AllowFriendsButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+end)
+
+AllowFriendsButton.MouseButton1Click:Connect(function()
+	pcall(function()
+		game:GetService('ReplicatedStorage'):WaitForChild('Packages'):WaitForChild('Net'):WaitForChild('RE/PlotService/ToggleFriends'):FireServer()
+		
+		-- Animation du bouton
+		TweenService:Create(AllowFriendsButton, TweenInfo.new(0.1), {
+			BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		}):Play()
+		
+		task.wait(0.2)
+		
+		TweenService:Create(AllowFriendsButton, TweenInfo.new(0.3), {
+			BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+		}):Play()
+	end)
+end)
+
+-- Fake Bypass Button
+local BypassFrame = Instance.new("Frame", FeaturesPage)
+BypassFrame.Size = UDim2.fromOffset(300, 45)
+BypassFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+BypassFrame.BorderSizePixel = 0
+
+local BypassCorner = Instance.new("UICorner", BypassFrame)
+BypassCorner.CornerRadius = UDim.new(0, 8)
+
+local BypassStroke = Instance.new("UIStroke", BypassFrame)
+BypassStroke.Thickness = 2
+BypassStroke.Color = Color3.fromRGB(150, 0, 200)
+
+local BypassButton = Instance.new("TextButton", BypassFrame)
+BypassButton.Size = UDim2.new(1, -10, 1, -10)
+BypassButton.Position = UDim2.fromOffset(5, 5)
+BypassButton.BackgroundColor3 = Color3.fromRGB(150, 0, 200)
+BypassButton.Text = "bypass anti-cheat 😈"
+BypassButton.Font = Enum.Font.GothamBold
+BypassButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+BypassButton.TextSize = 14
+BypassButton.AutoButtonColor = false
+
+local BypassBtnCorner = Instance.new("UICorner", BypassButton)
+BypassBtnCorner.CornerRadius = UDim.new(0, 6)
+
+-- Overlay bypass
+local Overlay = Instance.new("Frame", ScreenGui)
+Overlay.Size = UDim2.fromScale(1, 1)
+Overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+Overlay.BackgroundTransparency = 1
+Overlay.Visible = false
+Overlay.ZIndex = 100
+
+local OverlayText = Instance.new("TextLabel", Overlay)
+OverlayText.Size = UDim2.fromScale(1, 1)
+OverlayText.BackgroundTransparency = 1
+OverlayText.TextWrapped = true
+OverlayText.TextYAlignment = Enum.TextYAlignment.Center
+OverlayText.Font = Enum.Font.GothamBold
+OverlayText.TextSize = 36
+OverlayText.TextColor3 = Color3.new(1, 1, 1)
+OverlayText.ZIndex = 101
+OverlayText.Text = "injecting 💉...\n\nhttps://discord.gg/aSM5RqqgZg\nBy isxm and izxmi 😈"
+
+local LoadBG = Instance.new("Frame", Overlay)
+LoadBG.Size = UDim2.fromScale(0.5, 0.025)
+LoadBG.Position = UDim2.fromScale(0.25, 0.1)
+LoadBG.BackgroundColor3 = Color3.fromRGB(60, 0, 90)
+LoadBG.BorderSizePixel = 0
+LoadBG.ZIndex = 101
+Instance.new("UICorner", LoadBG)
+
+local LoadFill = Instance.new("Frame", LoadBG)
+LoadFill.Size = UDim2.fromScale(0, 1)
+LoadFill.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
+LoadFill.BorderSizePixel = 0
+LoadFill.ZIndex = 102
+Instance.new("UICorner", LoadFill)
+
+BypassButton.MouseEnter:Connect(function()
+	BypassButton.BackgroundColor3 = Color3.fromRGB(170, 20, 220)
+end)
+
+BypassButton.MouseLeave:Connect(function()
+	BypassButton.BackgroundColor3 = Color3.fromRGB(150, 0, 200)
+end)
+
+BypassButton.MouseButton1Click:Connect(function()
+	Overlay.Visible = true
+	LoadFill.Size = UDim2.fromScale(0, 1)
+	TweenService:Create(Overlay, TweenInfo.new(0.4), {BackgroundTransparency = 0}):Play()
+	
+	for i = 1, 100 do
+		LoadFill.Size = UDim2.fromScale(i/100, 1)
+		task.wait(0.03)
+	end
+	
+	task.wait(0.4)
+	TweenService:Create(Overlay, TweenInfo.new(0.6), {BackgroundTransparency = 1}):Play()
+	task.wait(0.6)
+	Overlay.Visible = false
+end)
+
+----------------------------------------------------------------
+-- TOGGLES VISUAL
+----------------------------------------------------------------
+createAetherToggle(VisualPage, "esp players", function(v) ESPEnabled = v end)
+createAetherToggle(VisualPage, "esp distance", function(v) ESPShowDistance = v end)
+createAetherToggle(VisualPage, "esp names", function(v) ESPShowNames = v end)
+createAetherToggle(VisualPage, "esp brainrot 🧠", function(v) ESPBrainrotEnabled = v end)  -- NOUVEAU
+createAetherToggle(VisualPage, "wallhack", function(v) WallhackEnabled = v end)
+
+-- Wallhack Mode Button
+local WallhackModeFrame = Instance.new("Frame", VisualPage)
+WallhackModeFrame.Size = UDim2.fromOffset(300, 45)
+WallhackModeFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+WallhackModeFrame.BorderSizePixel = 0
+
+local WallhackModeCorner = Instance.new("UICorner", WallhackModeFrame)
+WallhackModeCorner.CornerRadius = UDim.new(0, 8)
+
+local WallhackModeStroke = Instance.new("UIStroke", WallhackModeFrame)
+WallhackModeStroke.Thickness = 2
+WallhackModeStroke.Color = Color3.fromRGB(80, 80, 90)
+
+local WallhackModeButton = Instance.new("TextButton", WallhackModeFrame)
+WallhackModeButton.Size = UDim2.fromOffset(120, 35)
+WallhackModeButton.Position = UDim2.fromOffset(170, 5)
+WallhackModeButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+WallhackModeButton.Text = "Smart"
+WallhackModeButton.Font = Enum.Font.GothamBold
+WallhackModeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+WallhackModeButton.TextSize = 12
+WallhackModeButton.AutoButtonColor = false
+
+local WallhackModeBtnCorner = Instance.new("UICorner", WallhackModeButton)
+WallhackModeBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local WallhackModeLabel = Instance.new("TextLabel", WallhackModeFrame)
+WallhackModeLabel.Size = UDim2.fromOffset(155, 35)
+WallhackModeLabel.Position = UDim2.fromOffset(10, 5)
+WallhackModeLabel.BackgroundTransparency = 1
+WallhackModeLabel.Text = "wallhack mode"
+WallhackModeLabel.Font = Enum.Font.GothamBold
+WallhackModeLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+WallhackModeLabel.TextSize = 14
+WallhackModeLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+WallhackModeButton.MouseButton1Click:Connect(function()
+	if WallhackMode == "Smart" then
+		WallhackMode = "WallsOnly"
+		WallhackModeButton.Text = "WallsOnly"
+	elseif WallhackMode == "WallsOnly" then
+		WallhackMode = "Full"
+		WallhackModeButton.Text = "Full"
+	else
+		WallhackMode = "Smart"
+		WallhackModeButton.Text = "Smart"
+	end
+	LastScan = 0
+end)
+
+----------------------------------------------------------------
+-- AETHER SPEED UI 💉
+----------------------------------------------------------------
+local SpeedFrame = Instance.new("Frame", ScreenGui)
+SpeedFrame.Size = UDim2.fromOffset(280, 100)
+SpeedFrame.Position = UDim2.new(0.05, 0, 0.75, 0)
+SpeedFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+SpeedFrame.BorderSizePixel = 0
+SpeedFrame.Active = true
+SpeedFrame.Draggable = true
+
+local SpeedCorner = Instance.new("UICorner", SpeedFrame)
+SpeedCorner.CornerRadius = UDim.new(0, 12)
+
+local SpeedStroke = Instance.new("UIStroke", SpeedFrame)
+SpeedStroke.Thickness = 2
+SpeedStroke.Color = Color3.fromRGB(138, 43, 226)
+SpeedStroke.Transparency = 0.3
+
+local SpeedTitle = Instance.new("TextLabel", SpeedFrame)
+SpeedTitle.Size = UDim2.new(1, -20, 0, 25)
+SpeedTitle.Position = UDim2.new(0, 10, 0, 5)
+SpeedTitle.BackgroundTransparency = 1
+SpeedTitle.Text = "aether speed 💉"
+SpeedTitle.Font = Enum.Font.GothamBold
+SpeedTitle.TextColor3 = Color3.fromRGB(200, 150, 255)
+SpeedTitle.TextSize = 16
+SpeedTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local SpeedContainer = Instance.new("Frame", SpeedFrame)
+SpeedContainer.Size = UDim2.fromOffset(260, 50)
+SpeedContainer.Position = UDim2.fromOffset(10, 35)
+SpeedContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+SpeedContainer.BorderSizePixel = 0
+
+local ContainerCorner = Instance.new("UICorner", SpeedContainer)
+ContainerCorner.CornerRadius = UDim.new(0, 8)
+
+local ContainerStroke = Instance.new("UIStroke", SpeedContainer)
+ContainerStroke.Thickness = 2
+ContainerStroke.Color = Color3.fromRGB(80, 80, 90)
+
+local SpeedToggle = Instance.new("TextButton", SpeedContainer)
+SpeedToggle.Size = UDim2.fromOffset(165, 40)
+SpeedToggle.Position = UDim2.fromOffset(5, 5)
+SpeedToggle.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+SpeedToggle.Text = "ENABLE"
+SpeedToggle.Font = Enum.Font.GothamBold
+SpeedToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedToggle.TextSize = 14
+SpeedToggle.AutoButtonColor = false
+
+local SpeedToggleCorner = Instance.new("UICorner", SpeedToggle)
+SpeedToggleCorner.CornerRadius = UDim.new(0, 6)
+
+local SpeedToggleStroke = Instance.new("UIStroke", SpeedToggle)
+SpeedToggleStroke.Thickness = 2
+SpeedToggleStroke.Color = Color3.fromRGB(180, 100, 255)
+
+local SpeedInput = Instance.new("TextBox", SpeedContainer)
+SpeedInput.Size = UDim2.fromOffset(80, 40)
+SpeedInput.Position = UDim2.fromOffset(175, 5)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.PlaceholderText = "25"
+SpeedInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+SpeedInput.Text = "25"
+SpeedInput.Font = Enum.Font.GothamBold
+SpeedInput.TextSize = 18
+SpeedInput.ClearTextOnFocus = false
+
+local InputCorner = Instance.new("UICorner", SpeedInput)
+InputCorner.CornerRadius = UDim.new(0, 6)
+
+local InputStroke = Instance.new("UIStroke", SpeedInput)
+InputStroke.Thickness = 2
+InputStroke.Color = Color3.fromRGB(80, 80, 90)
+
+SpeedToggle.MouseEnter:Connect(function()
+	SpeedToggle.BackgroundColor3 = Color3.fromRGB(158, 63, 246)
+end)
+
+SpeedToggle.MouseLeave:Connect(function()
+	if isSpeedEnabled then
+		SpeedToggle.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+	else
+		SpeedToggle.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+	end
+end)
+
+SpeedToggle.MouseButton1Click:Connect(function()
+	isSpeedEnabled = not isSpeedEnabled
+	
+	if isSpeedEnabled then
+		SpeedToggle.Text = "DISABLE"
+		SpeedToggle.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+		SpeedToggleStroke.Color = Color3.fromRGB(255, 100, 120)
+		SpeedStroke.Color = Color3.fromRGB(255, 60, 100)
+		SpeedTitle.TextColor3 = Color3.fromRGB(255, 150, 180)
+		ContainerStroke.Color = Color3.fromRGB(255, 60, 100)
+		
+		speedValue = tonumber(SpeedInput.Text) or 25
+		
+		velocityConnection = RunService.Heartbeat:Connect(function()
+			local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+			
+			if hrp and hum then
+				local moveDir = Vector3.new(hum.MoveDirection.X, 0, hum.MoveDirection.Z) * speedValue
+				hrp.Velocity = hrp.Velocity:Lerp(Vector3.new(moveDir.X, hrp.Velocity.Y, moveDir.Z), 0.45)
+			end
+		end)
+	else
+		SpeedToggle.Text = "ENABLE"
+		SpeedToggle.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+		SpeedToggleStroke.Color = Color3.fromRGB(180, 100, 255)
+		SpeedStroke.Color = Color3.fromRGB(138, 43, 226)
+		SpeedTitle.TextColor3 = Color3.fromRGB(200, 150, 255)
+		ContainerStroke.Color = Color3.fromRGB(80, 80, 90)
+		
+		if velocityConnection then
+			velocityConnection:Disconnect()
+			velocityConnection = nil
+		end
+	end
+end)
+
+SpeedInput.FocusLost:Connect(function()
+	local value = tonumber(SpeedInput.Text)
+	if not value then
+		SpeedInput.Text = "25"
+	else
+		SpeedInput.Text = tostring(math.clamp(value, 1, 200))
+	end
+end)
+
+----------------------------------------------------------------
+-- TOKINU HUB MINI UI 💜
+----------------------------------------------------------------
+local TokinuFrame = Instance.new("Frame", ScreenGui)
+TokinuFrame.Size = UDim2.fromOffset(180, 120)
+TokinuFrame.Position = UDim2.new(0.05, 0, 0.45, 0)
+TokinuFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TokinuFrame.BorderSizePixel = 0
+TokinuFrame.Active = true
+TokinuFrame.Draggable = true
+
+local TokinuCorner = Instance.new("UICorner", TokinuFrame)
+TokinuCorner.CornerRadius = UDim.new(0, 12)
+
+local TokinuStroke = Instance.new("UIStroke", TokinuFrame)
+TokinuStroke.Thickness = 2
+TokinuStroke.Color = Color3.fromRGB(138, 43, 226)
+TokinuStroke.Transparency = 0.3
+
+local TokinuTitle = Instance.new("TextLabel", TokinuFrame)
+TokinuTitle.Size = UDim2.new(1, -20, 0, 24)
+TokinuTitle.Position = UDim2.new(0, 10, 0, 6)
+TokinuTitle.BackgroundTransparency = 1
+TokinuTitle.Text = "aether allow/disallow 💜"
+TokinuTitle.Font = Enum.Font.GothamBold
+TokinuTitle.TextColor3 = Color3.fromRGB(200, 150, 255)
+TokinuTitle.TextSize = 14
+TokinuTitle.TextXAlignment = Enum.TextXAlignment.Center
+
+local TokinuAllowButton = Instance.new("TextButton", TokinuFrame)
+TokinuAllowButton.Size = UDim2.new(1, -30, 0, 70)
+TokinuAllowButton.Position = UDim2.new(0, 15, 0, 40)
+TokinuAllowButton.Text = "Allow Friends"
+TokinuAllowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TokinuAllowButton.Font = Enum.Font.GothamBold
+TokinuAllowButton.TextSize = 16
+TokinuAllowButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+TokinuAllowButton.BorderSizePixel = 0
+TokinuAllowButton.AutoButtonColor = false
+
+local TokinuButtonCorner = Instance.new("UICorner", TokinuAllowButton)
+TokinuButtonCorner.CornerRadius = UDim.new(0, 10)
+
+local TokinuButtonStroke = Instance.new("UIStroke", TokinuAllowButton)
+TokinuButtonStroke.Thickness = 2
+TokinuButtonStroke.Color = Color3.fromRGB(180, 100, 255)
+
+local isFriendsAllowed = true
+
+TokinuAllowButton.MouseEnter:Connect(function()
+	TokinuAllowButton.BackgroundColor3 = Color3.fromRGB(158, 63, 246)
+end)
+
+TokinuAllowButton.MouseLeave:Connect(function()
+	if isFriendsAllowed then
+		TokinuAllowButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+	else
+		TokinuAllowButton.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+	end
+end)
+
+TokinuAllowButton.MouseButton1Click:Connect(function()
+	pcall(function()
+		isFriendsAllowed = not isFriendsAllowed
+		
+		if isFriendsAllowed then
+			TokinuAllowButton.Text = "Allow Friends"
+			TokinuAllowButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+			TokinuButtonStroke.Color = Color3.fromRGB(180, 100, 255)
+			TokinuStroke.Color = Color3.fromRGB(138, 43, 226)
+		else
+			TokinuAllowButton.Text = "Disallow"
+			TokinuAllowButton.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+			TokinuButtonStroke.Color = Color3.fromRGB(255, 100, 120)
+			TokinuStroke.Color = Color3.fromRGB(255, 60, 100)
+		end
+		
+		game:GetService('ReplicatedStorage'):WaitForChild('Packages'):WaitForChild('Net'):WaitForChild('RE/PlotService/ToggleFriends'):FireServer()
+	end)
+end)
 
 ----------------------------------------------------------------
 -- BARRE DE PROGRESSION AUTO GRAB 🧲
 ----------------------------------------------------------------
 local GrabIndicator = Instance.new("Frame", ScreenGui)
-GrabIndicator.Size = UDim2.fromOffset(300, 8)
-GrabIndicator.Position = UDim2.new(0.5, -150, 0.85, 0)
-GrabIndicator.BackgroundColor3 = Color3.fromRGB(40, 0, 60)
+GrabIndicator.Size = UDim2.fromOffset(400, 18)
+GrabIndicator.Position = UDim2.new(0.5, -200, 0.02, 0)
+GrabIndicator.BackgroundColor3 = Color3.fromRGB(20, 0, 40)
 GrabIndicator.BorderSizePixel = 0
 GrabIndicator.Visible = false
-GrabIndicator.ZIndex = 10
-Instance.new("UICorner", GrabIndicator).CornerRadius = UDim.new(0, 4)
+GrabIndicator.ZIndex = 100
+
+local GrabCorner = Instance.new("UICorner", GrabIndicator)
+GrabCorner.CornerRadius = UDim.new(0, 9)
+
+local GrabGlow = Instance.new("UIStroke", GrabIndicator)
+GrabGlow.Color = Color3.fromRGB(200, 0, 255)
+GrabGlow.Thickness = 3
+GrabGlow.Transparency = 0.3
 
 local GrabFill = Instance.new("Frame", GrabIndicator)
 GrabFill.Size = UDim2.fromScale(0, 1)
 GrabFill.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
 GrabFill.BorderSizePixel = 0
-GrabFill.ZIndex = 11
-Instance.new("UICorner", GrabFill).CornerRadius = UDim.new(0, 4)
+GrabFill.ZIndex = 101
+
+local GrabFillCorner = Instance.new("UICorner", GrabFill)
+GrabFillCorner.CornerRadius = UDim.new(0, 9)
+
+local GrabGradient = Instance.new("UIGradient", GrabFill)
+GrabGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(160, 0, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 255))
+}
 
 local GrabText = Instance.new("TextLabel", GrabIndicator)
 GrabText.Size = UDim2.fromScale(1, 1)
 GrabText.BackgroundTransparency = 1
 GrabText.Text = "🧲 Grabbing..."
 GrabText.Font = Enum.Font.GothamBold
-GrabText.TextSize = 12
+GrabText.TextSize = 14
 GrabText.TextColor3 = Color3.new(1, 1, 1)
-GrabText.ZIndex = 12
+GrabText.ZIndex = 102
 
--- Fonction pour afficher la barre de progression
-local function showGrabProgress()
+local GrabTextStroke = Instance.new("UIStroke", GrabText)
+GrabTextStroke.Thickness = 2
+
+local function showGrabProgress(brainrotName)
 	GrabIndicator.Visible = true
+	GrabText.Text = "🧲 GRABBED: " .. (brainrotName or "Brainrot") .. " ✅"
 	GrabFill.Size = UDim2.fromScale(0, 1)
 	
-	-- Animation de remplissage
-	TweenService:Create(GrabFill, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {
+	TweenService:Create(GrabFill, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = UDim2.fromScale(1, 1)
 	}):Play()
 	
-	-- Cache après 1 seconde
-	task.delay(1, function()
+	task.delay(1.8, function()
+		TweenService:Create(GrabIndicator, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(GrabFill, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(GrabText, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+		TweenService:Create(GrabGlow, TweenInfo.new(0.4), {Transparency = 1}):Play()
+		
+		task.wait(0.4)
 		GrabIndicator.Visible = false
+		GrabIndicator.BackgroundTransparency = 0
+		GrabFill.BackgroundTransparency = 0
+		GrabText.TextTransparency = 0
+		GrabGlow.Transparency = 0.3
 	end)
 end
-----------------------------------------------------------------
-
--- Tabs
-local Tabs = Instance.new("Frame", Main)
-Tabs.Position = UDim2.fromOffset(10,50)
-Tabs.Size = UDim2.fromOffset(150,340)
-Tabs.BackgroundTransparency = 1
-
-local Content = Instance.new("Frame", Main)
-Content.Position = UDim2.fromOffset(170,50)
-Content.Size = UDim2.fromOffset(320,340)
-Content.BackgroundTransparency = 1
-
--- Helper functions
-local function createTabButton(text,y)
-	local b = Instance.new("TextButton", Tabs)
-	b.Size = UDim2.fromOffset(150,40)
-	b.Position = UDim2.fromOffset(0,y)
-	b.Text = text
-	b.Font = Enum.Font.Gotham
-	b.TextSize = 14
-	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = TabColor
-	Instance.new("UICorner",b)
-	b.MouseEnter:Connect(function()
-		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=TabHover}):Play()
-	end)
-	b.MouseLeave:Connect(function()
-		TweenService:Create(b,TweenInfo.new(0.2),{BackgroundColor3=TabColor}):Play()
-	end)
-	return b
-end
-
-local FeaturesTab = createTabButton("Features",0)
-local VisualTab = createTabButton("Visual",50)
-
--- Pages
-local Pages = {}
-local function createPage(name)
-	local f = Instance.new("Frame", Content)
-	f.Size = UDim2.fromScale(1,1)
-	f.BackgroundTransparency = 0.6
-	f.BackgroundColor3 = Color3.fromRGB(80,0,140)
-	Instance.new("UICorner", f).CornerRadius = UDim.new(0,10)
-	f.Visible = false
-	Pages[name] = f
-	return f
-end
-
-local FeaturesPage = createPage("Features")
-local VisualPage = createPage("Visual")
-FeaturesPage.Visible = true
-
-local function switchPage(name)
-	for _,v in pairs(Pages) do v.Visible = false end
-	Pages[name].Visible = true
-end
-
-FeaturesTab.MouseButton1Click:Connect(function() switchPage("Features") end)
-VisualTab.MouseButton1Click:Connect(function() switchPage("Visual") end)
-
--- Toggle helper
-local function createToggle(parent,text,y,callback)
-	local b = Instance.new("TextButton",parent)
-	b.Size = UDim2.fromOffset(240,40)
-	b.Position = UDim2.fromOffset(0,y)
-	b.Text = text.." : OFF"
-	b.Font = Enum.Font.Gotham
-	b.TextSize = 14
-	b.TextColor3 = Color3.new(1,1,1)
-	b.BackgroundColor3 = Color3.fromRGB(70,0,120)
-	Instance.new("UICorner",b)
-	local state=false
-	b.MouseButton1Click:Connect(function()
-		state = not state
-		b.Text = text.." : "..(state and "ON" or "OFF")
-		callback(state)
-	end)
-	return b
-end
-
--- Features
-createToggle(FeaturesPage,"Auto Grab 🧲",0,function(v) AutoGrabEnabled=v end)
-createToggle(FeaturesPage,"Grab Assist",50,function(v) GrabAssistEnabled=v end)
-createToggle(FeaturesPage,"Anti-Knockback",100,function(v) AntiKBEnabled=v end)
-createToggle(FeaturesPage,"Anti-Ragdoll",150,function(v) AntiRagdollEnabled=v end)
-
--- Visual
-createToggle(VisualPage,"ESP",0,function(v) ESPEnabled=v end)
-createToggle(VisualPage,"ESP Distance",50,function(v) ESPShowDistance=v end)
-createToggle(VisualPage,"ESP Names",100,function(v) ESPShowNames=v end)
-createToggle(VisualPage,"Wallhack",150,function(v) WallhackEnabled=v end)
-
--- Aether Booster - Menu complet avec Speed et Steal Boost
-local AetherBooster = Instance.new("Frame", ScreenGui)
-AetherBooster.Size = UDim2.fromOffset(260,400)
-AetherBooster.Position = UDim2.fromScale(0.7,0.5)
-AetherBooster.AnchorPoint = Vector2.new(0.5,0.5)
-AetherBooster.BackgroundColor3 = MainColor
-AetherBooster.BackgroundTransparency = 0.4
-AetherBooster.BorderSizePixel = 0
-AetherBooster.Active = true
-AetherBooster.Draggable = true
-Instance.new("UICorner", AetherBooster)
-AetherBooster.Visible = false
-
--- Titre Aether Booster
-local BoosterTitle = Instance.new("TextLabel", AetherBooster)
-BoosterTitle.Size = UDim2.new(1,0,0,35)
-BoosterTitle.Text = "⚡ AETHER BOOSTER ⚡"
-BoosterTitle.Font = Enum.Font.GothamBold
-BoosterTitle.TextSize = 16
-BoosterTitle.TextColor3 = TextColor
-BoosterTitle.BackgroundTransparency = 1
-
--- Toggle Speed Boost
-local SpeedBoostToggle = Instance.new("TextButton", AetherBooster)
-SpeedBoostToggle.Size = UDim2.fromOffset(240,35)
-SpeedBoostToggle.Position = UDim2.fromOffset(10,45)
-SpeedBoostToggle.Text = "Speed Boost : OFF"
-SpeedBoostToggle.Font = Enum.Font.Gotham
-SpeedBoostToggle.TextSize = 14
-SpeedBoostToggle.TextColor3 = Color3.new(1,1,1)
-SpeedBoostToggle.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",SpeedBoostToggle)
-SpeedBoostToggle.MouseButton1Click:Connect(function()
-	SpeedEnabled = not SpeedEnabled
-	SpeedBoostToggle.Text = "Speed Boost : "..(SpeedEnabled and "ON" or "OFF")
-end)
-
--- Speed controls
-local SpeedLabel = Instance.new("TextLabel", AetherBooster)
-SpeedLabel.Size = UDim2.fromOffset(240,25)
-SpeedLabel.Position = UDim2.fromOffset(10,90)
-SpeedLabel.Text = "Speed: 24"
-SpeedLabel.Font = Enum.Font.GothamBold
-SpeedLabel.TextSize = 14
-SpeedLabel.TextColor3 = Color3.new(1,1,1)
-SpeedLabel.BackgroundTransparency = 1
-
-local SpeedMinus = Instance.new("TextButton", AetherBooster)
-SpeedMinus.Size = UDim2.fromOffset(70,30)
-SpeedMinus.Position = UDim2.fromOffset(10,120)
-SpeedMinus.Text = "- 1"
-SpeedMinus.Font = Enum.Font.GothamBold
-SpeedMinus.TextSize = 16
-SpeedMinus.TextColor3 = Color3.new(1,1,1)
-SpeedMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",SpeedMinus)
-SpeedMinus.MouseButton1Click:Connect(function()
-	WalkSpeedValue = math.max(24, WalkSpeedValue - 1)
-	SpeedLabel.Text = "Speed: "..WalkSpeedValue
-end)
-
-local SpeedPlus = Instance.new("TextButton", AetherBooster)
-SpeedPlus.Size = UDim2.fromOffset(70,30)
-SpeedPlus.Position = UDim2.fromOffset(90,120)
-SpeedPlus.Text = "+ 1"
-SpeedPlus.Font = Enum.Font.GothamBold
-SpeedPlus.TextSize = 16
-SpeedPlus.TextColor3 = Color3.new(1,1,1)
-SpeedPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",SpeedPlus)
-SpeedPlus.MouseButton1Click:Connect(function()
-	WalkSpeedValue = math.min(50, WalkSpeedValue + 1)
-	SpeedLabel.Text = "Speed: "..WalkSpeedValue
-end)
-
-local SpeedPlus5 = Instance.new("TextButton", AetherBooster)
-SpeedPlus5.Size = UDim2.fromOffset(70,30)
-SpeedPlus5.Position = UDim2.fromOffset(170,120)
-SpeedPlus5.Text = "+ 5"
-SpeedPlus5.Font = Enum.Font.GothamBold
-SpeedPlus5.TextSize = 16
-SpeedPlus5.TextColor3 = Color3.new(1,1,1)
-SpeedPlus5.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",SpeedPlus5)
-SpeedPlus5.MouseButton1Click:Connect(function()
-	WalkSpeedValue = math.min(50, WalkSpeedValue + 5)
-	SpeedLabel.Text = "Speed: "..WalkSpeedValue
-end)
-
--- Toggle Steal Boost
-local StealBoostToggle = Instance.new("TextButton", AetherBooster)
-StealBoostToggle.Size = UDim2.fromOffset(240,35)
-StealBoostToggle.Position = UDim2.fromOffset(10,165)
-StealBoostToggle.Text = "Steal Boost : OFF"
-StealBoostToggle.Font = Enum.Font.Gotham
-StealBoostToggle.TextSize = 14
-StealBoostToggle.TextColor3 = Color3.new(1,1,1)
-StealBoostToggle.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",StealBoostToggle)
-StealBoostToggle.MouseButton1Click:Connect(function()
-	StealBoostEnabled = not StealBoostEnabled
-	StealBoostToggle.Text = "Steal Boost : "..(StealBoostEnabled and "ON" or "OFF")
-end)
-
--- Steal Speed controls
-local StealLabel = Instance.new("TextLabel", AetherBooster)
-StealLabel.Size = UDim2.fromOffset(240,25)
-StealLabel.Position = UDim2.fromOffset(10,210)
-StealLabel.Text = "Steal Speed: 27"
-StealLabel.Font = Enum.Font.GothamBold
-StealLabel.TextSize = 14
-StealLabel.TextColor3 = Color3.new(1,1,1)
-StealLabel.BackgroundTransparency = 1
-
-local StealMinus = Instance.new("TextButton", AetherBooster)
-StealMinus.Size = UDim2.fromOffset(70,30)
-StealMinus.Position = UDim2.fromOffset(10,240)
-StealMinus.Text = "- 1"
-StealMinus.Font = Enum.Font.GothamBold
-StealMinus.TextSize = 16
-StealMinus.TextColor3 = Color3.new(1,1,1)
-StealMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",StealMinus)
-StealMinus.MouseButton1Click:Connect(function()
-	StealSpeedValue = math.max(24, StealSpeedValue - 1)
-	StealLabel.Text = "Steal Speed: "..StealSpeedValue
-end)
-
-local StealPlus = Instance.new("TextButton", AetherBooster)
-StealPlus.Size = UDim2.fromOffset(70,30)
-StealPlus.Position = UDim2.fromOffset(90,240)
-StealPlus.Text = "+ 1"
-StealPlus.Font = Enum.Font.GothamBold
-StealPlus.TextSize = 16
-StealPlus.TextColor3 = Color3.new(1,1,1)
-StealPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",StealPlus)
-StealPlus.MouseButton1Click:Connect(function()
-	StealSpeedValue = math.min(35, StealSpeedValue + 1)
-	StealLabel.Text = "Steal Speed: "..StealSpeedValue
-end)
-
-local StealPlus5 = Instance.new("TextButton", AetherBooster)
-StealPlus5.Size = UDim2.fromOffset(70,30)
-StealPlus5.Position = UDim2.fromOffset(170,240)
-StealPlus5.Text = "+ 5"
-StealPlus5.Font = Enum.Font.GothamBold
-StealPlus5.TextSize = 16
-StealPlus5.TextColor3 = Color3.new(1,1,1)
-StealPlus5.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",StealPlus5)
-StealPlus5.MouseButton1Click:Connect(function()
-	StealSpeedValue = math.min(35, StealSpeedValue + 5)
-	StealLabel.Text = "Steal Speed: "..StealSpeedValue
-end)
-
--- Jump controls
-local JumpLabel = Instance.new("TextLabel", AetherBooster)
-JumpLabel.Size = UDim2.fromOffset(240,25)
-JumpLabel.Position = UDim2.fromOffset(10,285)
-JumpLabel.Text = "Jump Power: 50"
-JumpLabel.Font = Enum.Font.GothamBold
-JumpLabel.TextSize = 14
-JumpLabel.TextColor3 = Color3.new(1,1,1)
-JumpLabel.BackgroundTransparency = 1
-
-local JumpMinus = Instance.new("TextButton", AetherBooster)
-JumpMinus.Size = UDim2.fromOffset(70,30)
-JumpMinus.Position = UDim2.fromOffset(10,315)
-JumpMinus.Text = "- 5"
-JumpMinus.Font = Enum.Font.GothamBold
-JumpMinus.TextSize = 16
-JumpMinus.TextColor3 = Color3.new(1,1,1)
-JumpMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",JumpMinus)
-JumpMinus.MouseButton1Click:Connect(function()
-	JumpPowerValue = math.max(50, JumpPowerValue - 5)
-	JumpLabel.Text = "Jump Power: "..JumpPowerValue
-end)
-
-local JumpPlus = Instance.new("TextButton", AetherBooster)
-JumpPlus.Size = UDim2.fromOffset(70,30)
-JumpPlus.Position = UDim2.fromOffset(90,315)
-JumpPlus.Text = "+ 5"
-JumpPlus.Font = Enum.Font.GothamBold
-JumpPlus.TextSize = 16
-JumpPlus.TextColor3 = Color3.new(1,1,1)
-JumpPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",JumpPlus)
-JumpPlus.MouseButton1Click:Connect(function()
-	JumpPowerValue = math.min(200, JumpPowerValue + 5)
-	JumpLabel.Text = "Jump Power: "..JumpPowerValue
-end)
-
-local JumpPlus10 = Instance.new("TextButton", AetherBooster)
-JumpPlus10.Size = UDim2.fromOffset(70,30)
-JumpPlus10.Position = UDim2.fromOffset(170,315)
-JumpPlus10.Text = "+ 10"
-JumpPlus10.Font = Enum.Font.GothamBold
-JumpPlus10.TextSize = 16
-JumpPlus10.TextColor3 = Color3.new(1,1,1)
-JumpPlus10.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner",JumpPlus10)
-JumpPlus10.MouseButton1Click:Connect(function()
-	JumpPowerValue = math.min(200, JumpPowerValue + 10)
-	JumpLabel.Text = "Jump Power: "..JumpPowerValue
-end)
-
--- Close button
-local CloseBooster = Instance.new("TextButton", AetherBooster)
-CloseBooster.Size = UDim2.fromOffset(240,30)
-CloseBooster.Position = UDim2.fromOffset(10,360)
-CloseBooster.Text = "Close"
-CloseBooster.Font = Enum.Font.GothamBold
-CloseBooster.TextSize = 14
-CloseBooster.TextColor3 = Color3.new(1,1,1)
-CloseBooster.BackgroundColor3 = Color3.fromRGB(150,0,200)
-Instance.new("UICorner",CloseBooster)
-CloseBooster.MouseButton1Click:Connect(function()
-	AetherBooster.Visible = false
-end)
-
-createToggle(FeaturesPage,"Aether Booster",250,function(v)
-	AetherBooster.Visible = v
-end)
 
 ----------------------------------------------------------------
--- FAKE BYPASS ANTI-CHEAT 😈 (STYLE UNIQUEMENT)
+-- 🧠 ESP BRAINROT SYSTEM (NOUVEAU)
 ----------------------------------------------------------------
-local FakeBypassBtn = Instance.new("TextButton", FeaturesPage)
-FakeBypassBtn.Size = UDim2.fromOffset(240,40)
-FakeBypassBtn.Position = UDim2.fromOffset(0,300)
-FakeBypassBtn.Text = "Bypass Anti-Cheat 😈"
-FakeBypassBtn.Font = Enum.Font.GothamBold
-FakeBypassBtn.TextSize = 14
-FakeBypassBtn.TextColor3 = Color3.new(1,1,1)
-FakeBypassBtn.BackgroundColor3 = Color3.fromRGB(150,0,200)
-Instance.new("UICorner", FakeBypassBtn)
+local function createESPBrainrot(brainrot)
+	if not brainrot:IsA("Tool") then return end
+	if ESPBrainrotObjects[brainrot] then return end
+	if not isBrainrot(brainrot.Name) then return end
+	
+	local handle = brainrot:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then return end
+	
+	-- Hitbox violette
+	local hitbox = Instance.new("BoxHandleAdornment")
+	hitbox.Name = "follow me @rznnq"
+	hitbox.Adornee = handle
+	hitbox.Size = handle.Size + Vector3.new(1, 1, 1)
+	hitbox.Color3 = Color3.fromRGB(128, 0, 128)
+	hitbox.Transparency = 0.6
+	hitbox.ZIndex = 10
+	hitbox.AlwaysOnTop = true
+	hitbox.Parent = handle
+	
+	-- Billboard avec nom
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "cpsito riko"
+	billboard.Adornee = handle
+	billboard.Size = UDim2.new(0, 200, 0, 50)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = handle
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = brainrot.Name
+	label.TextColor3 = Color3.fromRGB(255, 0, 255)
+	label.Font = Enum.Font.Arcade
+	label.TextScaled = true
+	label.TextStrokeTransparency = 0.7
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.Parent = billboard
+	
+	ESPBrainrotObjects[brainrot] = {hitbox = hitbox, billboard = billboard}
+end
 
-local Overlay = Instance.new("Frame", ScreenGui)
-Overlay.Size = UDim2.fromScale(1,1)
-Overlay.BackgroundColor3 = Color3.new(0,0,0)
-Overlay.BackgroundTransparency = 1
-Overlay.Visible = false
-Overlay.ZIndex = 100
+local function removeESPBrainrot(brainrot)
+	if not ESPBrainrotObjects[brainrot] then return end
+	
+	local data = ESPBrainrotObjects[brainrot]
+	if data.hitbox then data.hitbox:Destroy() end
+	if data.billboard then data.billboard:Destroy() end
+	
+	ESPBrainrotObjects[brainrot] = nil
+end
 
-local OverlayText = Instance.new("TextLabel", Overlay)
-OverlayText.Size = UDim2.fromScale(1,1)
-OverlayText.BackgroundTransparency = 1
-OverlayText.TextWrapped = true
-OverlayText.TextYAlignment = Enum.TextYAlignment.Center
-OverlayText.TextXAlignment = Enum.TextXAlignment.Center
-OverlayText.Font = Enum.Font.GothamBold
-OverlayText.TextSize = 36
-OverlayText.TextColor3 = Color3.new(1,1,1)
-OverlayText.ZIndex = 101
-OverlayText.Text =
-	"injecting 💉...\n\n" ..
-	"https://discord.gg/aSM5RqqgZg\n" ..
-	"By isxm and izxmi 😈"
-
-local LoadBG = Instance.new("Frame", Overlay)
-LoadBG.Size = UDim2.fromScale(0.5,0.025)
-LoadBG.Position = UDim2.fromScale(0.25,0.1)
-LoadBG.BackgroundColor3 = Color3.fromRGB(60,0,90)
-LoadBG.BorderSizePixel = 0
-LoadBG.ZIndex = 101
-Instance.new("UICorner", LoadBG)
-
-local LoadFill = Instance.new("Frame", LoadBG)
-LoadFill.Size = UDim2.fromScale(0,1)
-LoadFill.BackgroundColor3 = Color3.fromRGB(200,100,255)
-LoadFill.BorderSizePixel = 0
-LoadFill.ZIndex = 102
-Instance.new("UICorner", LoadFill)
-
-FakeBypassBtn.MouseButton1Click:Connect(function()
-	Overlay.Visible = true
-	LoadFill.Size = UDim2.fromScale(0,1)
-
-	TweenService:Create(Overlay,TweenInfo.new(0.4),{BackgroundTransparency=0}):Play()
-
-	for i=1,100 do
-		LoadFill.Size = UDim2.fromScale(i/100,1)
-		task.wait(0.03)
+local function enableESPBrainrot()
+	-- ESP pour les brainrots existants
+	for _, obj in pairs(workspace:GetDescendants()) do
+		if obj:IsA("Tool") and isBrainrot(obj.Name) then
+			createESPBrainrot(obj)
+		end
 	end
+	
+	-- Écouter les nouveaux brainrots
+	local descConn = workspace.DescendantAdded:Connect(function(obj)
+		if ESPBrainrotEnabled and obj:IsA("Tool") and isBrainrot(obj.Name) then
+			task.wait(0.1)
+			createESPBrainrot(obj)
+		end
+	end)
+	table.insert(espBrainrotConnections, descConn)
+	
+	-- Nettoyer les brainrots supprimés
+	local descRemovedConn = workspace.DescendantRemoving:Connect(function(obj)
+		if obj:IsA("Tool") then
+			removeESPBrainrot(obj)
+		end
+	end)
+	table.insert(espBrainrotConnections, descRemovedConn)
+end
 
-	task.wait(0.4)
+local function disableESPBrainrot()
+	-- Supprimer tous les ESP
+	for brainrot, _ in pairs(ESPBrainrotObjects) do
+		removeESPBrainrot(brainrot)
+	end
+	
+	-- Déconnecter les événements
+	for _, conn in ipairs(espBrainrotConnections) do
+		if conn and conn.Connected then
+			conn:Disconnect()
+		end
+	end
+	espBrainrotConnections = {}
+end
 
-	TweenService:Create(Overlay,TweenInfo.new(0.6),{BackgroundTransparency=1}):Play()
-	task.wait(0.6)
-	Overlay.Visible = false
+-- Mettre à jour l'ESP quand le toggle change
+task.spawn(function()
+	while task.wait(0.5) do
+		pcall(function()
+			if ESPBrainrotEnabled then
+				-- Vérifier si l'ESP est déjà actif
+				if #espBrainrotConnections == 0 then
+					enableESPBrainrot()
+				end
+			else
+				-- Désactiver si les connexions existent
+				if #espBrainrotConnections > 0 then
+					disableESPBrainrot()
+				end
+			end
+		end)
+	end
 end)
 
 ----------------------------------------------------------------
--- AUTO GRAB SYSTEM OPTIMISÉ 🧲 (SANS TÉLÉPORTATION)
+-- AUTO GRAB SYSTEM 🧲
 ----------------------------------------------------------------
 local lastGrabTime = 0
-local grabCooldown = 1  -- Cooldown de 1 seconde entre chaque grab
+local grabCooldown = 0.7
 
-task.spawn(function()
-	while task.wait(0.5) do  -- Check toutes les 0.5 secondes (réduit le lag)
-		pcall(function()
-			if AutoGrabEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-				local hrp = LocalPlayer.Character.HumanoidRootPart
-				local char = LocalPlayer.Character
-				local currentTime = tick()
-				
-				-- Vérifie le cooldown
-				if currentTime - lastGrabTime < grabCooldown then
-					return
-				end
-				
-				-- Vérifie qu'on n'a pas déjà un brainrot
-				local hasBrainrot = false
-				local equippedTool = char:FindFirstChildOfClass("Tool")
-				if equippedTool then
-					local toolName = equippedTool.Name:lower()
-					if toolName:find("brain") then
-						hasBrainrot = true
-					end
-				end
-				
-				if hasBrainrot then
-					return  -- On a déjà un brainrot, on skip
-				end
-				
-				-- Cherche le brainrot le plus proche
-				local closestBrainrot = nil
-				local closestDistance = AutoGrabRange
-				
-				for _, obj in pairs(workspace:GetChildren()) do
-					if obj:IsA("Tool") or (obj:IsA("Model") and obj:FindFirstChildOfClass("Tool")) then
-						local tool = obj:IsA("Tool") and obj or obj:FindFirstChildOfClass("Tool")
-						
-						if tool then
-							local toolName = tool.Name:lower()
-							if toolName:find("brain") then
-								local handle = tool:FindFirstChild("Handle")
-								if handle then
-									local distance = (hrp.Position - handle.Position).Magnitude
-									if distance < closestDistance then
-										closestDistance = distance
-										closestBrainrot = tool
-									end
-								end
-							end
-						end
-					end
-				end
-				
-				-- Si on a trouvé un brainrot proche, on le prend
-				if closestBrainrot then
-					-- Méthode 1: Essayer de déclencher ProximityPrompt
-					local prompt = closestBrainrot:FindFirstChildOfClass("ProximityPrompt", true)
-					if prompt then
-						fireproximityprompt(prompt)
-						showGrabProgress()
-						lastGrabTime = currentTime
-						return
-					end
-					
-					-- Méthode 2: Changer le parent directement
-					if closestBrainrot.Parent == workspace or closestBrainrot.Parent:IsA("Model") then
-						closestBrainrot.Parent = char
-						task.wait(0.1)
-						
-						-- Essaie de l'équiper
-						if char.Humanoid then
-							char.Humanoid:EquipTool(closestBrainrot)
-						end
-						
-						showGrabProgress()
-						lastGrabTime = currentTime
-					end
+local function hasBrainrotEquipped()
+	local char = LocalPlayer.Character
+	if not char then return false end
+	
+	for _, child in pairs(char:GetChildren()) do
+		if child:IsA("Tool") and isBrainrot(child.Name) then
+			return true
+		end
+	end
+	
+	local backpack = LocalPlayer:FindFirstChild("Backpack")
+	if backpack then
+		for _, tool in pairs(backpack:GetChildren()) do
+			if tool:IsA("Tool") and isBrainrot(tool.Name) then
+				return true
+			end
+		end
+	end
+	
+	return false
+end
+
+local function findClosestBrainrot()
+	local char = LocalPlayer.Character
+	if not char then return nil end
+	
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return nil end
+	
+	local closest = nil
+	local closestDist = AutoGrabRange
+	
+	for _, obj in pairs(workspace:GetDescendants()) do
+		if obj:IsA("Tool") and isBrainrot(obj.Name) then
+			local handle = obj:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") then
+				local dist = (hrp.Position - handle.Position).Magnitude
+				if dist < closestDist then
+					closestDist = dist
+					closest = obj
 				end
 			end
-		end)
+		end
 	end
-end)
-----------------------------------------------------------------
--- END AUTO GRAB
-----------------------------------------------------------------
+	
+	return closest
+end
 
--- MOVEMENT SYSTEM - DÉSACTIVÉ (cause respawn sur ce jeu)
---[[
-task.spawn(function()
-	while task.wait() do
+local function grabBrainrot(brainrot)
+	local char = LocalPlayer.Character
+	if not char then return false end
+	
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return false end
+	
+	local prompt = brainrot:FindFirstChildOfClass("ProximityPrompt", true)
+	if prompt then
 		pcall(function()
+			fireproximityprompt(prompt)
+		end)
+		return true
+	end
+	
+	local clickDetector = brainrot:FindFirstChildOfClass("ClickDetector", true)
+	if clickDetector then
+		pcall(function()
+			fireclickdetector(clickDetector)
+		end)
+		return true
+	end
+	
+	pcall(function()
+		local handle = brainrot:FindFirstChild("Handle")
+		if handle then
+			handle.CFrame = hrp.CFrame
+			task.wait(0.05)
+		end
+		
+		brainrot.Parent = char
+		task.wait(0.1)
+		
+		local humanoid = char:FindFirstChild("Humanoid")
+		if humanoid then
+			humanoid:EquipTool(brainrot)
+		end
+	end)
+	
+	return true
+end
+
+task.spawn(function()
+	while task.wait(0.4) do
+		pcall(function()
+			if not AutoGrabEnabled then return end
+			
 			local char = LocalPlayer.Character
-			if char and char:FindFirstChild("Humanoid") then
-				local humanoid = char.Humanoid
-				
-				if humanoid.Health > 0 then
-					local hasBrainrot = false
-					local tool = char:FindFirstChildOfClass("Tool")
-					
-					if tool then
-						local toolName = tool.Name:lower()
-						if toolName:find("brain") then
-							hasBrainrot = true
-						end
-					end
-					
-					local targetSpeed = nil
-					
-					if hasBrainrot and StealBoostEnabled then
-						targetSpeed = StealSpeedValue
-					elseif not hasBrainrot and SpeedEnabled then
-						targetSpeed = WalkSpeedValue
-					end
-					
-					if targetSpeed and humanoid.WalkSpeed < targetSpeed then
-						humanoid.WalkSpeed = targetSpeed
-					end
-					
-					if (SpeedEnabled or StealBoostEnabled) and humanoid.JumpPower < JumpPowerValue then
-						humanoid.JumpPower = JumpPowerValue
-					end
-				end
+			if not char then return end
+			
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			if not hrp then return end
+			
+			local currentTime = tick()
+			
+			if currentTime - lastGrabTime < grabCooldown then
+				return
+			end
+			
+			if hasBrainrotEquipped() then
+				return
+			end
+			
+			local brainrot = findClosestBrainrot()
+			if not brainrot then return end
+			
+			local success = grabBrainrot(brainrot)
+			if success then
+				lastGrabTime = currentTime
+				showGrabProgress(brainrot.Name)
 			end
 		end)
 	end
 end)
---]]
 
+LocalPlayer.CharacterAdded:Connect(function(char)
+	task.wait(1)
+	lastGrabTime = 0
+end)
+
+----------------------------------------------------------------
 -- ANTI-RAGDOLL
+----------------------------------------------------------------
 task.spawn(function()
 	while task.wait() do
 		pcall(function()
@@ -652,7 +1250,9 @@ task.spawn(function()
 	end
 end)
 
+----------------------------------------------------------------
 -- ANTI-KB
+----------------------------------------------------------------
 task.spawn(function()
 	while task.wait(0.1) do
 		pcall(function()
@@ -677,7 +1277,9 @@ task.spawn(function()
 	end
 end)
 
+----------------------------------------------------------------
 -- GRAB ASSIST
+----------------------------------------------------------------
 task.spawn(function()
 	while task.wait(0.5) do
 		pcall(function()
@@ -686,7 +1288,7 @@ task.spawn(function()
 					if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
 						local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
 						if dist < 10 then
-							-- Code pour grab assist ici
+							-- Grab assist logic
 						end
 					end
 				end
@@ -695,7 +1297,9 @@ task.spawn(function()
 	end
 end)
 
--- ESP
+----------------------------------------------------------------
+-- ESP PLAYERS
+----------------------------------------------------------------
 task.spawn(function()
 	while task.wait() do
 		pcall(function()
@@ -792,9 +1396,8 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------------
--- WALLHACK OPTIMISÉ
+-- WALLHACK
 ----------------------------------------------------------------
-
 local function isWallOrObstacle(part)
 	local size = part.Size
 	if size.Magnitude < MinPartSize then
@@ -907,71 +1510,11 @@ task.spawn(function()
 	end
 end)
 
--- UI WALLHACK
-local WallhackModeBtn = Instance.new("TextButton", VisualPage)
-WallhackModeBtn.Size = UDim2.fromOffset(240,40)
-WallhackModeBtn.Position = UDim2.fromOffset(0,200)
-WallhackModeBtn.Text = "Mode: Smart"
-WallhackModeBtn.Font = Enum.Font.Gotham
-WallhackModeBtn.TextSize = 14
-WallhackModeBtn.TextColor3 = Color3.new(1,1,1)
-WallhackModeBtn.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner", WallhackModeBtn)
-
-WallhackModeBtn.MouseButton1Click:Connect(function()
-	if WallhackMode == "Smart" then
-		WallhackMode = "WallsOnly"
-	elseif WallhackMode == "WallsOnly" then
-		WallhackMode = "Full"
-	else
-		WallhackMode = "Smart"
-	end
-	WallhackModeBtn.Text = "Mode: "..WallhackMode
-	LastScan = 0
-end)
-
-local TranspLabel = Instance.new("TextLabel", VisualPage)
-TranspLabel.Size = UDim2.fromOffset(240,25)
-TranspLabel.Position = UDim2.fromOffset(0,250)
-TranspLabel.Text = "Transparency: 85%"
-TranspLabel.Font = Enum.Font.Gotham
-TranspLabel.TextSize = 14
-TranspLabel.TextColor3 = Color3.new(1,1,1)
-TranspLabel.BackgroundTransparency = 1
-
-local TranspMinus = Instance.new("TextButton", VisualPage)
-TranspMinus.Size = UDim2.fromOffset(70,30)
-TranspMinus.Position = UDim2.fromOffset(0,280)
-TranspMinus.Text = "- 5%"
-TranspMinus.Font = Enum.Font.Gotham
-TranspMinus.TextSize = 14
-TranspMinus.TextColor3 = Color3.new(1,1,1)
-TranspMinus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner", TranspMinus)
-
-TranspMinus.MouseButton1Click:Connect(function()
-	WallhackTransparency = math.max(0.5, WallhackTransparency - 0.05)
-	TranspLabel.Text = "Transparency: "..math.floor(WallhackTransparency*100).."%"
-	LastScan = 0
-end)
-
-local TranspPlus = Instance.new("TextButton", VisualPage)
-TranspPlus.Size = UDim2.fromOffset(70,30)
-TranspPlus.Position = UDim2.fromOffset(85,280)
-TranspPlus.Text = "+ 5%"
-TranspPlus.Font = Enum.Font.Gotham
-TranspPlus.TextSize = 14
-TranspPlus.TextColor3 = Color3.new(1,1,1)
-TranspPlus.BackgroundColor3 = Color3.fromRGB(70,0,120)
-Instance.new("UICorner", TranspPlus)
-
-TranspPlus.MouseButton1Click:Connect(function()
-	WallhackTransparency = math.min(0.95, WallhackTransparency + 0.05)
-	TranspLabel.Text = "Transparency: "..math.floor(WallhackTransparency*100).."%"
-	LastScan = 0
-end)
-
-print("✅ AETHER HUB V11 SAFE - Loaded!")
-print("🎯 Wallhack optimisé - Smart mode")
-print("🧲 Auto Grab - Sans téléportation + Barre violette")
-print("💜 By isxm and izxmi")
+print("✅ AETHER HUB V11 - AETHER STYLE 💉")
+print("🎯 UI avec système de minimisation")
+print("📋 Ancien menu avec tabs Features/Visual")
+print("🧲 Auto Grab - 200+ brainrots!")
+print("🧠 ESP Brainrot intégré!")
+print("💉 Aether Speed intégré")
+print("💜 Tokinu Hub - Allow/Disallow Friends!")
+print("💜 By isxm and izxmi - discord.gg/aSM5RqqgZg")
