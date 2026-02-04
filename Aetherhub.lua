@@ -1,5 +1,5 @@
 -- AETHER HUB V11 - AETHER STYLE 💉
--- UI moderne + Auto Grab + Aether Speed + ESP Brainrot intégré
+-- UI moderne + Auto Grab + Aether Speed + ESP Brainrot + FLY TO BASE intégré
 -- By isxm and izxmi
 
 -- Services
@@ -17,7 +17,7 @@ repeat task.wait() until LocalPlayer.Character
 local ESPEnabled = false
 local ESPShowDistance = false
 local ESPShowNames = false
-local ESPBrainrotEnabled = false  -- NOUVEAU: ESP pour les brainrots
+local ESPBrainrotEnabled = false
 local WallhackEnabled = false
 local GrabAssistEnabled = false
 local AntiKBEnabled = false
@@ -25,8 +25,13 @@ local AntiRagdollEnabled = false
 local AutoGrabEnabled = false  
 local AutoGrabRange = 35
 local ESPObjects = {}
-local ESPBrainrotObjects = {}  -- NOUVEAU: Table pour ESP brainrot
+local ESPBrainrotObjects = {}
 local WallhackObjects = {}
+
+-- NOUVEAU: Fly to Base Config
+local FlyToBaseEnabled = false
+local flyConnection = nil
+local basePosition = nil  -- Position de ta base (à définir)
 
 -- Configurations Wallhack
 local WallhackMode = "Smart"
@@ -288,7 +293,7 @@ MiniFrame.MouseLeave:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- TABS SYSTEM (ANCIEN STYLE)
+-- TABS SYSTEM
 ----------------------------------------------------------------
 local TabsFrame = Instance.new("Frame", MainFrame)
 TabsFrame.Size = UDim2.fromOffset(150, 340)
@@ -340,6 +345,7 @@ end
 
 local FeaturesTab = createTab("Features", 0)
 local VisualTab = createTab("Visual", 50)
+local TeleportTab = createTab("Teleport ✈️", 100)  -- NOUVEAU TAB
 
 -- Pages
 local Pages = {}
@@ -374,6 +380,7 @@ end
 
 local FeaturesPage = createPage("Features")
 local VisualPage = createPage("Visual")
+local TeleportPage = createPage("Teleport")  -- NOUVELLE PAGE
 FeaturesPage.Visible = true
 FeaturesTab.BackgroundColor3 = TabActive
 
@@ -398,6 +405,10 @@ end)
 
 VisualTab.MouseButton1Click:Connect(function()
 	switchPage("Visual", VisualTab)
+end)
+
+TeleportTab.MouseButton1Click:Connect(function()
+	switchPage("Teleport", TeleportTab)
 end)
 
 ----------------------------------------------------------------
@@ -641,7 +652,7 @@ end)
 createAetherToggle(VisualPage, "esp players", function(v) ESPEnabled = v end)
 createAetherToggle(VisualPage, "esp distance", function(v) ESPShowDistance = v end)
 createAetherToggle(VisualPage, "esp names", function(v) ESPShowNames = v end)
-createAetherToggle(VisualPage, "esp brainrot 🧠", function(v) ESPBrainrotEnabled = v end)  -- NOUVEAU
+createAetherToggle(VisualPage, "esp brainrot 🧠", function(v) ESPBrainrotEnabled = v end)
 createAetherToggle(VisualPage, "wallhack", function(v) WallhackEnabled = v end)
 
 -- Wallhack Mode Button
@@ -692,6 +703,329 @@ WallhackModeButton.MouseButton1Click:Connect(function()
 		WallhackModeButton.Text = "Smart"
 	end
 	LastScan = 0
+end)
+
+----------------------------------------------------------------
+-- 🚀 TELEPORT PAGE - FLY TO BASE (NOUVEAU)
+----------------------------------------------------------------
+
+-- Instructions
+local InstructionsLabel = Instance.new("TextLabel", TeleportPage)
+InstructionsLabel.Size = UDim2.fromOffset(300, 60)
+InstructionsLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+InstructionsLabel.BorderSizePixel = 0
+InstructionsLabel.Text = "1. Stand at your base\n2. Click 'Set Base Position'\n3. Use 'Fly to Base' anytime!"
+InstructionsLabel.Font = Enum.Font.Gotham
+InstructionsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+InstructionsLabel.TextSize = 12
+InstructionsLabel.TextWrapped = true
+InstructionsLabel.TextYAlignment = Enum.TextYAlignment.Top
+
+local InstructionsCorner = Instance.new("UICorner", InstructionsLabel)
+InstructionsCorner.CornerRadius = UDim.new(0, 8)
+
+-- Set Base Position Button
+local SetBaseFrame = Instance.new("Frame", TeleportPage)
+SetBaseFrame.Size = UDim2.fromOffset(300, 45)
+SetBaseFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+SetBaseFrame.BorderSizePixel = 0
+
+local SetBaseCorner = Instance.new("UICorner", SetBaseFrame)
+SetBaseCorner.CornerRadius = UDim.new(0, 8)
+
+local SetBaseStroke = Instance.new("UIStroke", SetBaseFrame)
+SetBaseStroke.Thickness = 2
+SetBaseStroke.Color = Color3.fromRGB(80, 80, 90)
+
+local SetBaseButton = Instance.new("TextButton", SetBaseFrame)
+SetBaseButton.Size = UDim2.fromOffset(120, 35)
+SetBaseButton.Position = UDim2.fromOffset(170, 5)
+SetBaseButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+SetBaseButton.Text = "SET BASE"
+SetBaseButton.Font = Enum.Font.GothamBold
+SetBaseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SetBaseButton.TextSize = 12
+SetBaseButton.AutoButtonColor = false
+
+local SetBaseBtnCorner = Instance.new("UICorner", SetBaseButton)
+SetBaseBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local SetBaseBtnStroke = Instance.new("UIStroke", SetBaseButton)
+SetBaseBtnStroke.Thickness = 2
+SetBaseBtnStroke.Color = Color3.fromRGB(100, 180, 255)
+
+local SetBaseLabel = Instance.new("TextLabel", SetBaseFrame)
+SetBaseLabel.Size = UDim2.fromOffset(155, 35)
+SetBaseLabel.Position = UDim2.fromOffset(10, 5)
+SetBaseLabel.BackgroundTransparency = 1
+SetBaseLabel.Text = "set base position 📍"
+SetBaseLabel.Font = Enum.Font.GothamBold
+SetBaseLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+SetBaseLabel.TextSize = 14
+SetBaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+SetBaseButton.MouseEnter:Connect(function()
+	SetBaseButton.BackgroundColor3 = Color3.fromRGB(20, 170, 255)
+end)
+
+SetBaseButton.MouseLeave:Connect(function()
+	SetBaseButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+end)
+
+SetBaseButton.MouseButton1Click:Connect(function()
+	local char = LocalPlayer.Character
+	if char and char:FindFirstChild("HumanoidRootPart") then
+		basePosition = char.HumanoidRootPart.Position
+		
+		-- Animation feedback
+		TweenService:Create(SetBaseButton, TweenInfo.new(0.1), {
+			BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		}):Play()
+		SetBaseButton.Text = "✅ SAVED"
+		
+		task.wait(1)
+		
+		TweenService:Create(SetBaseButton, TweenInfo.new(0.3), {
+			BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+		}):Play()
+		SetBaseButton.Text = "SET BASE"
+	end
+end)
+
+-- Fly to Base Toggle
+local FlyToBaseFrame = Instance.new("Frame", TeleportPage)
+FlyToBaseFrame.Size = UDim2.fromOffset(300, 45)
+FlyToBaseFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+FlyToBaseFrame.BorderSizePixel = 0
+
+local FlyToBaseCorner = Instance.new("UICorner", FlyToBaseFrame)
+FlyToBaseCorner.CornerRadius = UDim.new(0, 8)
+
+local FlyToBaseStroke = Instance.new("UIStroke", FlyToBaseFrame)
+FlyToBaseStroke.Thickness = 2
+FlyToBaseStroke.Color = Color3.fromRGB(80, 80, 90)
+
+local FlyToBaseButton = Instance.new("TextButton", FlyToBaseFrame)
+FlyToBaseButton.Size = UDim2.fromOffset(120, 35)
+FlyToBaseButton.Position = UDim2.fromOffset(170, 5)
+FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+FlyToBaseButton.Text = "FLY"
+FlyToBaseButton.Font = Enum.Font.GothamBold
+FlyToBaseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyToBaseButton.TextSize = 12
+FlyToBaseButton.AutoButtonColor = false
+
+local FlyToBaseBtnCorner = Instance.new("UICorner", FlyToBaseButton)
+FlyToBaseBtnCorner.CornerRadius = UDim.new(0, 6)
+
+local FlyToBaseBtnStroke = Instance.new("UIStroke", FlyToBaseButton)
+FlyToBaseBtnStroke.Thickness = 2
+FlyToBaseBtnStroke.Color = Color3.fromRGB(180, 100, 255)
+
+local FlyToBaseLabel = Instance.new("TextLabel", FlyToBaseFrame)
+FlyToBaseLabel.Size = UDim2.fromOffset(155, 35)
+FlyToBaseLabel.Position = UDim2.fromOffset(10, 5)
+FlyToBaseLabel.BackgroundTransparency = 1
+FlyToBaseLabel.Text = "fly to base ✈️"
+FlyToBaseLabel.Font = Enum.Font.GothamBold
+FlyToBaseLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+FlyToBaseLabel.TextSize = 14
+FlyToBaseLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Status Label
+local FlyStatusLabel = Instance.new("TextLabel", TeleportPage)
+FlyStatusLabel.Size = UDim2.fromOffset(300, 30)
+FlyStatusLabel.BackgroundTransparency = 1
+FlyStatusLabel.Text = "Status: Waiting..."
+FlyStatusLabel.Font = Enum.Font.GothamBold
+FlyStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+FlyStatusLabel.TextSize = 12
+FlyStatusLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+FlyToBaseButton.MouseEnter:Connect(function()
+	FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(158, 63, 246)
+end)
+
+FlyToBaseButton.MouseLeave:Connect(function()
+	if FlyToBaseEnabled then
+		FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+	else
+		FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+	end
+end)
+
+FlyToBaseButton.MouseButton1Click:Connect(function()
+	if not basePosition then
+		FlyStatusLabel.Text = "❌ Set base position first!"
+		FlyStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		return
+	end
+	
+	FlyToBaseEnabled = not FlyToBaseEnabled
+	
+	if FlyToBaseEnabled then
+		FlyToBaseButton.Text = "STOP"
+		FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+		FlyToBaseBtnStroke.Color = Color3.fromRGB(255, 100, 120)
+		FlyToBaseStroke.Color = Color3.fromRGB(255, 60, 100)
+		FlyStatusLabel.Text = "Status: Flying to base..."
+		FlyStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+		
+		local char = LocalPlayer.Character
+		if not char then return end
+		
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local hum = char:FindFirstChild("Humanoid")
+		
+		if not hrp or not hum then return end
+		
+		-- Change state to flying
+		hum:ChangeState(Enum.HumanoidStateType.Physics)
+		
+		flyConnection = RunService.Heartbeat:Connect(function()
+			if not FlyToBaseEnabled then return end
+			
+			local char = LocalPlayer.Character
+			if not char then return end
+			
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			if not hrp then return end
+			
+			-- Calculate direction and distance
+			local direction = (basePosition - hrp.Position).Unit
+			local distance = (basePosition - hrp.Position).Magnitude
+			
+			-- Check if arrived
+			if distance < 5 then
+				-- Stop flying
+				FlyToBaseEnabled = false
+				hrp.Velocity = Vector3.new(0, 0, 0)
+				
+				local hum = char:FindFirstChild("Humanoid")
+				if hum then
+					hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+				end
+				
+				if flyConnection then
+					flyConnection:Disconnect()
+					flyConnection = nil
+				end
+				
+				FlyToBaseButton.Text = "FLY"
+				FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+				FlyToBaseBtnStroke.Color = Color3.fromRGB(180, 100, 255)
+				FlyToBaseStroke.Color = Color3.fromRGB(80, 80, 90)
+				FlyStatusLabel.Text = "Status: ✅ Arrived!"
+				FlyStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+				
+				task.delay(2, function()
+					FlyStatusLabel.Text = "Status: Waiting..."
+					FlyStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+				end)
+			else
+				-- Continue flying with smooth velocity
+				local flySpeed = 50
+				hrp.Velocity = direction * flySpeed + Vector3.new(0, 5, 0)  -- Add slight upward force
+			end
+		end)
+	else
+		FlyToBaseButton.Text = "FLY"
+		FlyToBaseButton.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+		FlyToBaseBtnStroke.Color = Color3.fromRGB(180, 100, 255)
+		FlyToBaseStroke.Color = Color3.fromRGB(80, 80, 90)
+		FlyStatusLabel.Text = "Status: Stopped"
+		FlyStatusLabel.TextColor3 = Color3.fromRGB(255, 150, 100)
+		
+		if flyConnection then
+			flyConnection:Disconnect()
+			flyConnection = nil
+		end
+		
+		local char = LocalPlayer.Character
+		if char then
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			local hum = char:FindFirstChild("Humanoid")
+			
+			if hrp then
+				hrp.Velocity = Vector3.new(0, 0, 0)
+			end
+			
+			if hum then
+				hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+			end
+		end
+		
+		task.delay(2, function()
+			FlyStatusLabel.Text = "Status: Waiting..."
+			FlyStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+		end)
+	end
+end)
+
+-- Instant TP Button
+local InstantTPFrame = Instance.new("Frame", TeleportPage)
+InstantTPFrame.Size = UDim2.fromOffset(300, 45)
+InstantTPFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+InstantTPFrame.BorderSizePixel = 0
+
+local InstantTPCorner = Instance.new("UICorner", InstantTPFrame)
+InstantTPCorner.CornerRadius = UDim.new(0, 8)
+
+local InstantTPStroke = Instance.new("UIStroke", InstantTPFrame)
+InstantTPStroke.Thickness = 2
+InstantTPStroke.Color = Color3.fromRGB(255, 150, 0)
+
+local InstantTPButton = Instance.new("TextButton", InstantTPFrame)
+InstantTPButton.Size = UDim2.new(1, -10, 1, -10)
+InstantTPButton.Position = UDim2.fromOffset(5, 5)
+InstantTPButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+InstantTPButton.Text = "⚡ INSTANT TP TO BASE ⚡"
+InstantTPButton.Font = Enum.Font.GothamBold
+InstantTPButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+InstantTPButton.TextSize = 14
+InstantTPButton.AutoButtonColor = false
+
+local InstantTPBtnCorner = Instance.new("UICorner", InstantTPButton)
+InstantTPBtnCorner.CornerRadius = UDim.new(0, 6)
+
+InstantTPButton.MouseEnter:Connect(function()
+	InstantTPButton.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+end)
+
+InstantTPButton.MouseLeave:Connect(function()
+	InstantTPButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+end)
+
+InstantTPButton.MouseButton1Click:Connect(function()
+	if not basePosition then
+		FlyStatusLabel.Text = "❌ Set base position first!"
+		FlyStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		return
+	end
+	
+	local char = LocalPlayer.Character
+	if char and char:FindFirstChild("HumanoidRootPart") then
+		char.HumanoidRootPart.CFrame = CFrame.new(basePosition)
+		
+		-- Animation feedback
+		TweenService:Create(InstantTPButton, TweenInfo.new(0.1), {
+			BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		}):Play()
+		
+		FlyStatusLabel.Text = "Status: ⚡ Teleported!"
+		FlyStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 255)
+		
+		task.wait(0.3)
+		
+		TweenService:Create(InstantTPButton, TweenInfo.new(0.3), {
+			BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+		}):Play()
+		
+		task.delay(1.5, function()
+			FlyStatusLabel.Text = "Status: Waiting..."
+			FlyStatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+		end)
+	end
 end)
 
 ----------------------------------------------------------------
@@ -982,7 +1316,7 @@ local function showGrabProgress(brainrotName)
 end
 
 ----------------------------------------------------------------
--- 🧠 ESP BRAINROT SYSTEM (NOUVEAU)
+-- 🧠 ESP BRAINROT SYSTEM
 ----------------------------------------------------------------
 local function createESPBrainrot(brainrot)
 	if not brainrot:IsA("Tool") then return end
@@ -1037,14 +1371,12 @@ local function removeESPBrainrot(brainrot)
 end
 
 local function enableESPBrainrot()
-	-- ESP pour les brainrots existants
 	for _, obj in pairs(workspace:GetDescendants()) do
 		if obj:IsA("Tool") and isBrainrot(obj.Name) then
 			createESPBrainrot(obj)
 		end
 	end
 	
-	-- Écouter les nouveaux brainrots
 	local descConn = workspace.DescendantAdded:Connect(function(obj)
 		if ESPBrainrotEnabled and obj:IsA("Tool") and isBrainrot(obj.Name) then
 			task.wait(0.1)
@@ -1053,7 +1385,6 @@ local function enableESPBrainrot()
 	end)
 	table.insert(espBrainrotConnections, descConn)
 	
-	-- Nettoyer les brainrots supprimés
 	local descRemovedConn = workspace.DescendantRemoving:Connect(function(obj)
 		if obj:IsA("Tool") then
 			removeESPBrainrot(obj)
@@ -1063,12 +1394,10 @@ local function enableESPBrainrot()
 end
 
 local function disableESPBrainrot()
-	-- Supprimer tous les ESP
 	for brainrot, _ in pairs(ESPBrainrotObjects) do
 		removeESPBrainrot(brainrot)
 	end
 	
-	-- Déconnecter les événements
 	for _, conn in ipairs(espBrainrotConnections) do
 		if conn and conn.Connected then
 			conn:Disconnect()
@@ -1077,17 +1406,14 @@ local function disableESPBrainrot()
 	espBrainrotConnections = {}
 end
 
--- Mettre à jour l'ESP quand le toggle change
 task.spawn(function()
 	while task.wait(0.5) do
 		pcall(function()
 			if ESPBrainrotEnabled then
-				-- Vérifier si l'ESP est déjà actif
 				if #espBrainrotConnections == 0 then
 					enableESPBrainrot()
 				end
 			else
-				-- Désactiver si les connexions existent
 				if #espBrainrotConnections > 0 then
 					disableESPBrainrot()
 				end
@@ -1511,10 +1837,5 @@ task.spawn(function()
 end)
 
 print("✅ AETHER HUB V11 - AETHER STYLE 💉")
-print("🎯 UI avec système de minimisation")
-print("📋 Ancien menu avec tabs Features/Visual")
-print("🧲 Auto Grab - 200+ brainrots!")
-print("🧠 ESP Brainrot intégré!")
 print("💉 Aether Speed intégré")
-print("💜 Tokinu Hub - Allow/Disallow Friends!")
 print("💜 By isxm and izxmi - discord.gg/aSM5RqqgZg")
