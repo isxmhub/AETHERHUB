@@ -1836,6 +1836,5 @@ task.spawn(function()
 	end
 end)
 
-print("✅ AETHER HUB V11 - AETHER STYLE 💉")
-print("💉 Aether Speed intégré")
+print("✅ AETHER HUB V11 - INJECT SUCCESSFULLY 💉")
 print("💜 By isxm and izxmi - discord.gg/aSM5RqqgZg")
